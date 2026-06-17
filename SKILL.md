@@ -34,22 +34,22 @@ bash tools/v4-audit.sh                                  # Full v4 pipeline
 
 | Phase | Action | Gate |
 |-------|--------|------|
-| 0 Entry | `init-audit.sh`, baseline load | `gate-check PHASE_0` |
+| 0 Entry | `init-audit.sh`, baseline load | `PHASE_0_ENTRY` |
 | 1.0 Pre-query | Domain context → `pre-query.json` | — |
-| 1.1–1.4 SBL | Single source of truth (`sbl-functional-template.md`) | `gate-check PHASE_1` |
-| 1.5 Test Pyramid | Verify ≥4 test layers exist | `gate-check PHASE_1_5` |
-| 2 Review | 7-agent parallel (v4: 5 blind-briefings) | — |
-| 3 Arbitration | Merge findings, assign test_required | — |
-| 4 Fix | Apply patches | — |
-| 4.5 Test Author | RED+GREEN+boundary (see `docs/templates/test-template.ts`) | `gate-check PHASE_4_5` |
-| 5 Static | `tsc --noEmit` / lint | `gate-check PHASE_5` |
-| 5.5 Smoke | Happy+error+boundary paths | `gate-check PHASE_5_5` |
-| 5.6 Dynamic | Full test suite (`dynamic-test-runner.sh`) | `gate-check PHASE_5_6` |
-| 5.7 Chaos | Fault injection (`chaos-test.sh`) | `gate-check PHASE_5_7` |
-| 5.8 Mutation | Test effectiveness (`sed-mutation-test.sh`, ≥4/5 kill) | `gate-check PHASE_5_8` |
-| 6 Loop | Convergence (`convergence-check.sh`), max 8 rounds | — |
-| 6.5 Devil's Advocate | Independent adversarial challenge | `gate-check PHASE_6_5` |
-| 7 Final | Zero-defect cert (`verify-report.sh` + `regression-suite.sh`) | `gate-check PHASE_7` |
+| 1.1–1.4 SBL | Single source of truth (`sbl-functional-template.md`) | `PHASE_1_SBL` |
+| 1.5 Test Pyramid | Verify ≥4 test layers exist | — (check by tool) |
+| 2 Review | 7-agent parallel (v4: 5 blind-briefings) | `PHASE_2_REVIEW` |
+| 3 Arbitration | Merge findings, assign test_required | `PHASE_3_ARBITRATION` |
+| 4 Fix | Apply patches | `PHASE_4_FIX` |
+| 4.5 Test Author | RED+GREEN+boundary (see `docs/templates/test-template.ts`) | — (check by `test-coverage-check.sh`) |
+| 5 Static | `tsc --noEmit` / lint | `PHASE_5_STATIC` |
+| 5.5 Smoke | Happy+error+boundary paths | `PHASE_5_5_SMOKE` |
+| 5.6 Dynamic | Full test suite (`dynamic-test-runner.sh`) | — (check by tool) |
+| 5.7 Chaos | Fault injection (`chaos-test.sh`) | — (check by tool) |
+| 5.8 Mutation | Test effectiveness (`sed-mutation-test.sh`, ≥4/5 kill) | — (check by tool) |
+| 6 Loop | Convergence (`convergence-check.sh`), max 8 rounds | `PHASE_6_LOOP` |
+| 6.5 Devil's Advocate | Independent adversarial challenge | `PHASE_6_5_DEVIL_ADVOCATE` |
+| 7 Final | Zero-defect cert (`verify-report.sh` + `regression-suite.sh`) | `PHASE_7_FINAL` |
 
 ### v4-specific steps (auto via `v4-audit.sh`)
 
@@ -78,12 +78,15 @@ bash tools/v4-audit.sh                                  # Full v4 pipeline
 |------|----------|
 | `PHASE_0_ENTRY` | `audit_state.json` exists, mode set |
 | `PHASE_1_SBL` | Pre-query + SBL files present |
-| `PHASE_1_5` | ≥4 test layers with test files |
-| `PHASE_4_5` | Every `status=fixed` finding has `test_ids.length > 0` |
-| `PHASE_5_6` | Dynamic test pass, coverage > 80% |
-| `PHASE_5_7` | Chaos scenarios pass (kill/restart/concurrent/timeout) |
-| `PHASE_5_8` | Mutation kill ≥4/5 per file; all verified findings `mutation_killed=true` |
-| `PHASE_7` | 0 open, 0 fixing, all verified, P0 regression pass |
+| `PHASE_2_REVIEW` | 7-agent (or v4 blue team) findings produced |
+| `PHASE_3_ARBITRATION` | Findings merged, test_required assigned |
+| `PHASE_4_FIX` | All P0/P1/P2 patches applied |
+| `PHASE_5_STATIC` | `tsc --noEmit` passes, no build errors |
+| `PHASE_5_5_SMOKE` | Smoke endpoints return 200 |
+| `PHASE_6_LOOP` | Convergence check (<1 new finding or round cap) |
+| `PHASE_6_5_DEVIL_ADVOCATE` | Independent adversarial attack on each finding |
+| `PHASE_7_FINAL` | 0 open, 0 fixing, all verified, P0 regression pass |
+| (tool gates) | `test-coverage-check.sh`, `dynamic-test-runner.sh`, `chaos-test.sh`, `sed-mutation-test.sh` enforce their own phase-specific gates |
 
 ## Cross-Run Baselines (`.audit-cache/`)
 
