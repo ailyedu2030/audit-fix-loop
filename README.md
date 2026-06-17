@@ -1,11 +1,10 @@
 # super-fix
 
 Systematic zero-trust audit & fix loop for AI coding agents.
-**30 tools, 7 specialized agents, 6-layer defense pipeline.**
+**28 tools, 5 independent lenses, 6-layer defense pipeline.**
 
-[![version](https://img.shields.io/badge/version-4.3.0-blue)](SKILL.md)
-[![tools](https://img.shields.io/badge/tools-30-orange)](tools/)
-[![agents](https://img.shields.io/badge/agents-7-green)](agents/)
+[![version](https://img.shields.io/badge/version-5.0.0-blue)](SKILL.md)
+[![tools](https://img.shields.io/badge/tools-28-orange)](tools/)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ---
@@ -19,12 +18,12 @@ Three independent layers:
 
 | Layer | How | Why it works |
 |-------|-----|--------------|
-| **Subsystem** | Auto-detect 13 code subsystems, trace 32 cross-file data flows | Root causes cross files; file-local audit misses them |
-| **Adversarial** | 5 Blue Team agents (independent lenses) + Red Team (M3 cross-model attack) | No Bandwagon. Different models catch different things |
+| **Subsystem** | Auto-detect 14 code subsystems, trace 34 cross-file data flows | Root causes cross files; file-local audit misses them |
+| **Adversarial** | 5 general agents (independent lens prompts) + Red Team (M3 cross-model attack) | No Bandwagon. Different perspectives catch different things |
 | **Learning** | After-Action Review → blind spot registry → method updates | Each audit makes the next one smarter |
 
 Backed by a 6-layer defense pipeline (constrained decoding → schema validation/retry →
-tool standardization → logit guard → multi-agent protocol → circuit breaker).
+tool standardization → depth gate → cross-model Red Team → circuit breaker).
 
 ## Quick Start
 
@@ -35,20 +34,19 @@ git clone https://github.com/ailyedu2030/audit-fix-loop.git ~/.config/opencode/s
 bash ~/.config/opencode/skills/super-fix/tools/v4-audit.sh
 ```
 
-## Agents
+## 5 Lenses (Blue Team)
 
-| Agent | Model | Specializes in |
-|-------|-------|---------------|
-| `audit-blue-security` | M2.7 | Auth, authz, CSRF, injection, secrets |
-| `audit-blue-concurrency` | M2.7 | Race conditions, deadlocks, TOCTOU, lost updates |
-| `audit-blue-dataflow` | M2.7 | Type coercion, null propagation, cross-service validation |
-| `audit-blue-error` | M2.7 | Swallowed errors, stack leaks, missing graceful degradation |
-| `audit-blue-resource` | M2.7 | Connection/timer/handle leaks, shutdown cleanup |
-| `audit-red-team` | **M3** (cross-model) | Attacks Blue findings: trace survival → mutation → cousin → verdict |
-| `audit-aar` | M2.7 | After-action review: what worked, what missed, what to improve |
+The orchestrator spawns 5 **general** agents (Task subagent_type=general), each with a lens-specific prompt. No shared briefing = no Bandwagon.
 
-Each agent runs independently with its own prompt and briefing JSON.
-No shared context — no Bandwagon effect.
+| Lens | Focus |
+|------|-------|
+| `security` | Auth, authz, CSRF, injection, JWT, secrets |
+| `concurrency` | Race conditions, deadlocks, TOCTOU, lost updates |
+| `dataflow` | Type coercion, null propagation, cross-service validation |
+| `error` | Swallowed errors, stack leaks, missing graceful degradation |
+| `resource` | Connection/timer/handle leaks, shutdown cleanup, abort |
+
+Red Team: M3 cross-model (4-step attack: trace survival → mutation → cousin → verdict).
 
 ## Key Tools
 
@@ -56,10 +54,9 @@ No shared context — no Bandwagon effect.
 |------|-------------|
 | `v4-audit.sh` | Full orchestrator: all phases in order with gate enforcement |
 | `init-audit.sh` | Phase 0: create state machine, discover test layers, baseline check |
-| `subsystem-manifest.sh` | Auto-partition codebase into 13 subsystems |
-| `flow-trace.ts` | Build cross-subsystem data flow graph (32 flows, handles @/ alias) |
-| `generate-blind-briefings.ts` | Create 5-7 independent agent briefings (round-robin lens assignment) |
-| `run-blue-agent.ts` | Spawn a Blue Team agent, validate output, retry |
+| `subsystem-manifest.sh` | Auto-partition codebase into 14 subsystems |
+| `flow-trace.ts` | Build cross-subsystem data flow graph (34 flows, handles @/ alias) |
+| `generate-blind-briefings.ts` | Create 5 lens-specific briefings (round-robin assignment) |
 | `red-team-runner.ts` | M3 cross-model verification: `response_format: json_object`, 3x retry |
 | `validate-retry.ts` | Schema validation + JSON repair + exponential backoff retry |
 | `validate-causal-chain.sh` | Reject shallow findings (chain <3 steps, root_cause restating description) |
@@ -68,17 +65,16 @@ No shared context — no Bandwagon effect.
 
 Full list: `tools/README.md`.
 
-## Real-world Results (English-CET, 30k LoC)
+## Real-world Results (English-CET, 30k LoC, v5.0 verified)
 
 | Metric | Value |
 |--------|-------|
-| Findings discovered | 22 (1 P0, 7 P1, 14 P2) |
+| Findings discovered (v4.0 cycle) | 22 (1 P0, 7 P1, 14 P2) |
+| Latest cycle (v5.0) | 35 findings across 5 lenses |
 | Red Team cousin bugs found | 14 (Blue Team missed) |
-| Blue Team false positives filtered | 3 |
-| Bugs fixed | 19 across 15 files |
+| Bugs fixed | 19 across 16 files |
 | Detection rate improvement | 29% → 75% (+46% after AAR) |
 | Tests passing | 489/489 |
-| Cross-subsystem detection | 77% (target 30%) |
 
 ## Requirements
 
