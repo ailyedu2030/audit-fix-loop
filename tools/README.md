@@ -139,6 +139,67 @@ Detects and runs:
 
 Writes `dynamic-test-{round}.json` with per-suite results.
 
+## v3.6–v3.7
+
+### `init-audit.sh`
+
+Phase 0 initializer. Creates `audit_state.json`, discovers test layers,
+runs baseline scope check. Don't write state file manually — use this.
+
+```bash
+bash tools/init-audit.sh --mode=deep [--scope=module] [--force]
+```
+
+### `finding-hash.sh` + `cross-run-dedup.sh` + `baseline-diff.sh`
+
+Cross-run loop tools. `finding-hash.sh` computes stable semantic hash from
+(module, function, canonical_pattern). `cross-run-dedup.sh` filters new
+findings against `.audit-cache/baseline.json`. `baseline-diff.sh` computes
+incremental audit scope from `git diff`.
+
+### `regression-suite.sh` + `sed-mutation-test.sh` + `audit-state-hash.sh`
+
+P0 regression gate, 5-pattern mutation test, SHA-256 integrity check.
+
+## v4.0.0
+
+### `subsystem-manifest.sh` + `flow-trace.ts`
+
+Subsystem layer. `subsystem-manifest.sh generate` auto-detects ~13 subsystems
+from project structure (multi-homing for shared files, `.sql` support).
+`flow-trace.ts` builds cross-subsystem data flow graph (~32 flows detected).
+
+### `generate-blind-briefings.ts`
+
+Generates 5–7 independent agent briefings (round-robin lens assignment:
+data_flow, concurrency, security, error_handling, resource_lifecycle).
+Each agent gets different subsystem, entry file, and lens — no Bandwagon.
+
+### `red-team-attack.ts` + `red-team-runner.ts` + `red-team-verify.ts`
+
+Red Team layer. `red-team-attack.ts protocol` writes 4-step attack protocol.
+`red-team-runner.ts` calls M3 API (cross-model vs M2.7 Blue Team).
+`red-team-verify.ts` aggregates verdicts (holds/needs_modification/wrong).
+
+### `after-action-review.ts`
+
+Learning layer. 4 mandatory questions (plan/outcome/why/improve).
+Commits to `.audit-cache/aar-history/`, updates `.audit-cache/blind-spot-registry.json`,
+queues method updates for next audit.
+
+### `gold-set.ts` + `v4-detect-rate.ts`
+
+Validation tools. `gold-set.ts` builds 24 curated known bugs from audit history.
+`v4-detect-rate.ts` measures detection rate vs gold set (target: >90% P0/P1).
+
+### `v4-audit.sh`
+
+Full v4 orchestrator. Runs all tools in order with v3.7 regression gate.
+```bash
+bash tools/v4-audit.sh                    # Full v4
+bash tools/v4-audit.sh --v3.7 --deep      # v3.7 deep mode
+```
+
 ## Templates
 
 ### `fix-impact-matrix-template.yaml`
