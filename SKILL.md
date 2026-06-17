@@ -21,16 +21,19 @@ bash tools/v4-audit.sh                     # Steps 0-7: full automated pipeline
 
 ## Automated Pipeline (v4-audit.sh)
 
-| Step | Action | Tool |
-|------|--------|------|
-| 0 | Subsystem manifest + concurrency lock | `subsystem-manifest.sh` |
-| 1 | Cross-subsystem flow trace | `flow-trace.ts` |
-| 2 | Generate 5 lens briefings | `generate-blind-briefings.ts` |
-| 3 | Blue Team (orchestrator spawns 5 general agents) | Task `general` ×5 |
-| 4 | Red Team (M3 cross-model verification) | `red-team-runner.ts` → `red-team-verify.ts` |
-| 5 | After-Action Review (4 questions) | `after-action-review.ts` |
-| 6 | Cross-run dedup | `cross-run-dedup.sh` |
-| 7 | P0 regression gate (must pass) | `regression-suite.sh` |
+v4-audit.sh calls `gate-check.sh` between steps. The dispatch mapping (15 gates) is in gate-check.sh.
+
+| Step | Action | Tool | Gate |
+|------|--------|------|------|
+| 0 | Subsystem manifest + concurrency lock | `subsystem-manifest.sh` | `PHASE_0_ENTRY` |
+| 1 | Cross-subsystem flow trace | `flow-trace.ts` | — |
+| 2 | Generate 5 lens briefings | `generate-blind-briefings.ts` | — |
+| 3 | Blue Team (orchestrator spawns 5 general agents) | Task `general` ×5 | `PHASE_2_REVIEW` (≥3 findings) |
+| — | Merge + depth validate | `arbitrate-findings.sh` → `validate-causal-chain.sh` | — |
+| 4 | Red Team (M3 cross-model verification) | `red-team-runner.ts` → `red-team-verify.ts` | — |
+| 5 | After-Action Review (4 questions) | `after-action-review.ts` | — |
+| 6 | Cross-run dedup | `cross-run-dedup.sh` | — |
+| 7 | P0 regression gate (must pass) | `regression-suite.sh` | `PHASE_7_FINAL` |
 
 ### Step 3: Blue Team (5 independent lenses)
 
@@ -48,13 +51,20 @@ After all 5 agents output findings, run: `bash tools/arbitrate-findings.sh .audi
 
 ### Extended Phases (manual, after automated pipeline)
 
-| Phase | Action | Tool |
-|-------|--------|------|
-| 4 Fix | Apply patches for each finding | `apply-fix.ts <findings.json> <id>` |
-| 4.5 Test Author | RED+GREEN+boundary tests | `docs/templates/test-template.ts` |
-| 5 Static | TypeScript check | `tsc --noEmit` |
-| 5.8 Mutation | Test effectiveness | `sed-mutation-test.sh` (≥4/5 kill) |
-| 7 Final | Zero-defect certification | `gate-check.sh PHASE_7_FINAL` |
+| Phase | Action | Tool | Gate |
+|-------|--------|------|------|
+| 4 Fix | Apply patches for each finding | `apply-fix.ts <findings.json> <id>` | `PHASE_4_FIX` |
+| 4.5 Test Author | RED+GREEN+boundary tests | `docs/templates/test-template.ts` | `PHASE_4_5_TEST_AUTHOR` |
+| 5 Static | TypeScript check | `tsc --noEmit` | `PHASE_5_STATIC` |
+| 5.5 Smoke | Happy+error+boundary endpoint smoke | Smoke test scripts | `PHASE_5_5_SMOKE` |
+| 5.6 Dynamic | Full test suite | `dynamic-test-runner.sh` | `PHASE_5_6_DYNAMIC` |
+| 5.7 Chaos | Fault injection (kill/restart/timeout) | `chaos-test.sh` | `PHASE_5_7_CHAOS` |
+| 5.8 Mutation | Test effectiveness | `sed-mutation-test.sh` (≥4/5 kill) | `PHASE_5_8_MUTATION` |
+| 6 Loop | Convergence check | `convergence-check.sh` (max 8 rounds) | `PHASE_6_LOOP` |
+| 6.5 Devil's Advocate | Independent adversarial challenge | — | `PHASE_6_5_DEVIL_ADVOCATE` |
+| 7 Final | Zero-defect certification | `verify-report.sh` + `zero-defect-check.sh` | `PHASE_7_FINAL` |
+
+Each gate maps to a check function in `gate-check.sh` dispatch (15 total). See `tools/gate-check.sh` for exact validation logic.
 
 ## Severity Classification
 
