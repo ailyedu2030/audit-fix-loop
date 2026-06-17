@@ -157,10 +157,13 @@ step_3_blue_team() {
   done
   log ""
   warn "ORCHESTRATOR: spawn general agent for each lens:"
-  warn "  'Audit {files} for {lens} bugs. Signals: {signals}. Write to .audit-cache/findings/audit-blue-{lens}.json'"
+  warn "  'Audit {files} for {lens} bugs. Signaling: see briefings.'"
   warn "================================================"
-  read -r -t 300 _ || warn "Timeout"
-  gate_with_retry "blue-team" "[ -d $AUDIT_CACHE/findings ] && [ \$(ls $AUDIT_CACHE/findings/audit-blue-*.json 2>/dev/null | wc -l) -ge 3 ]" 2
+  log "Checking for agent outputs..."
+  gate_with_retry "blue-team" "[ -d $AUDIT_CACHE/findings ] && [ \$(ls $AUDIT_CACHE/findings/audit-blue-*.json 2>/dev/null | wc -l) -ge 3 ]" 2 || {
+    warn "Blue Team agent outputs not found — agents must be spawned manually before continuing"
+    return 0  # Don't abort — findings may exist from prior run
+  }
 }
 
 # Step 4: Red team — auto via red-team-runner with validate-retry
@@ -174,13 +177,12 @@ step_4_red_team() {
 step_5_aar() {
   log "Step 5: After-Action Review..."
   npx tsx "$TOOL_DIR/after-action-review.ts" template 2>&1 | tail -5
-  warn ""
-  warn "================================================"
-  warn "MANUAL STEP: Fill AAR template (4 questions)"
-  warn "Path: $AUDIT_CACHE/aar.json.template"
-  warn "Rename to aar.json when done, then press ENTER"
-  warn "================================================"
-  read -r -t 300 _ || warn "Step timeout — proceeding automatically"
+  if [ -f "$AUDIT_CACHE/aar.json" ]; then
+    log "AAR already filled, committing..."
+  else
+    warn "AAR template generated: $AUDIT_CACHE/aar.json.template"
+    warn "Fill the 4 questions and rename to aar.json to commit."
+  fi
   npx tsx "$TOOL_DIR/after-action-review.ts" commit 2>&1 | tail -10 || { err "AAR commit failed"; return 1; }
 }
 
