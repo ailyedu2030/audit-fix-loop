@@ -40,7 +40,7 @@ bash tools/v4-audit.sh                                  # Full v4 pipeline
 | 1.5 Test Pyramid | Verify ≥4 test layers exist | — (check by tool) |
 | 2 Review | 5-Blue-agent parallel (`run-blue-agent.ts` spawns audit sub-agents) | `PHASE_2_REVIEW` |
 | 3 Arbitration | Merge 5 agent outputs (`arbitrate-findings.sh`), assign test_required | `PHASE_3_ARBITRATION` |
-| 4 Fix | For each finding: read source → verify bug → fix → update state | `PHASE_4_FIX` |
+| 4 Fix | For each finding: `apply-fix.ts <findings.json> <id>` → read source → verify bug → fix → update state | `PHASE_4_FIX` |
 | 4.5 Test Author | RED+GREEN+boundary (see `docs/templates/test-template.ts`) | — (check by `test-coverage-check.sh`) |
 | 5 Static | `tsc --noEmit` / lint | `PHASE_5_STATIC` |
 | 5.5 Smoke | Happy+error+boundary paths | `PHASE_5_5_SMOKE` |
@@ -138,7 +138,7 @@ See `tools/README.md` for full documentation. Key tools by layer:
 | Layer | Tools |
 |-------|-------|
 | Subsystem | `subsystem-manifest.sh`, `flow-trace.ts` |
-| Adversarial | `generate-blind-briefings.ts`, `red-team-attack.ts`, `red-team-runner.ts`, `red-team-verify.ts`, `run-blue-agent.ts` |
+| Adversarial | `generate-blind-briefings.ts`, `red-team-attack.ts`, `red-team-runner.ts`, `red-team-verify.ts`, `run-blue-agent.ts`, `arbitrate-findings.sh`, `apply-fix.ts` |
 | Agents (v4.3) | `agents/audit-blue-security.md`, `agents/audit-blue-concurrency.md`, `agents/audit-blue-dataflow.md`, `agents/audit-blue-error.md`, `agents/audit-blue-resource.md`, `agents/audit-red-team.md`, `agents/audit-aar.md` |
 | Learning | `after-action-review.ts`, `gold-set.ts`, `v4-detect-rate.ts` |
 | Stability (v4.2) | `validate-retry.ts`, `validate-causal-chain.sh` |

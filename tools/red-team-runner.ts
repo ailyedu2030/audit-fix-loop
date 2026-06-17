@@ -3,6 +3,15 @@
  *
  * v4.2 changes:
  *   - L1: response_format: { type: "json_object" } on M3 API calls
+ *
+ * API PATH NOTE (v4.5):
+ *   This tool calls the NATIVE MiniMax API (api.minimaxi.com/v1/chat/completions)
+ *   to access `response_format: json_object` (constrained decoding, Layer 1).
+ *   Blue Team agents in opencode.json use the Anthropic-compatible proxy
+ *   (api.minimaxi.com/anthropic/v1) via @ai-sdk/anthropic SDK.
+ *   This is INTENTIONAL — the native API supports features (L1 constrained
+ *   decoding, higher max_tokens) that the Anthropic proxy may not expose.
+ *   Both endpoints validate with the same API key.
  *   - L2: validate-retry.ts wrapper with schema validation, exponential backoff
  *   - L2: Increased max_tokens 4000→8192, temperature 0.3→0.5
  *   - L2: AbortSignal.timeout(30000) for fetch
