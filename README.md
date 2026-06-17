@@ -2,15 +2,14 @@
 
 Systematic **zero-trust** audit & fix loop for AI coding agents.
 
-**v4.0.0 — Layered Adversarial Audit**: resolves 4 root causes (Bandwagon,
-File-local scope, Self-referential verification, Single-loop learning)
-identified by 6-expert retrospective. Blue Team (divergent lenses) → Red Team
-(cross-model M3) → AAR (double-loop learning).
+**v4.3.0 — 7-Agent Multi-Agent Protocol**: 6-layer defense pipeline (L1 constrained
+decoding + L2 schema validation/retry + L3 tool standardization + L5 multi-agent
+protocol + L6 circuit breaker). 7 dedicated sub-agents with independent lenses.
 
-[![version](https://img.shields.io/badge/version-4.0.0-blue)](SKILL.md)
-[![phases](https://img.shields.io/badge/tools-24-orange)](tools/)
+[![version](https://img.shields.io/badge/version-4.3.0-blue)](SKILL.md)
+[![tools](https://img.shields.io/badge/tools-30-orange)](tools/)
+[![agents](https://img.shields.io/badge/agents-7-green)](agents/)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![supersedes](https://img.shields.io/badge/supersedes-v3.7.0-lightgrey)](SKILL.md)
 
 ---
 
@@ -55,7 +54,7 @@ behind shallow, multi-loop audits:
 | **Self-referential** (4/6) | Same LLM verifies its own findings | M3 Red Team (cross-model) + 4-step attack protocol |
 | **Single-loop** (3/6) | Repeat audit, never learn why it missed | AAR (4 questions) + blind spot registry + method updates |
 
-### New tools (v4, 16 total)
+### New tools (v4, 30 total)
 
 | Tool | Type | Purpose |
 |------|------|---------|
@@ -74,6 +73,34 @@ behind shallow, multi-loop audits:
 | `sed-mutation-test.sh` | shell | 5-pattern mutation test (30s) |
 | `audit-state-hash.sh` | shell | SHA-256 integrity check on state file |
 
+### v4.2 — 6-Layer Defense Pipeline (stability)
+
+| Tool | Type | Purpose |
+|------|------|---------|
+| `validate-retry.ts` | TS | Schema validation + JSON repair + exponential backoff retry (L2) |
+| `validate-causal-chain.sh` | shell | Reject shallow findings (causal_chain ≥3, root_cause not restating description) |
+| `schemas/finding.schema.json` | schema | Required fields: causal_chain (min 3), root_cause (min 20 chars) |
+| `schemas/attack-result.schema.json` | schema | Required fields: confidence > 0, verdict enum |
+
+L1 (Constrained Decoding): `response_format: { type: "json_object" }` on all M3 API calls
+L3 (Tool Standardization): `read -t 300` timeout, auto-proceed on manual steps
+L6 (Circuit Breaker): per-phase 5min timeout, 3 failures → abort
+
+### v4.3 — 7-Agent Multi-Agent Protocol (stability + depth)
+
+| Agent (in `agents/`) | Model | Lens |
+|------|-------|------|
+| `audit-blue-security.md` | M2.7 | Auth/authz/input validation/data leak |
+| `audit-blue-concurrency.md` | M2.7 | Race conditions/deadlocks/TOCTOU |
+| `audit-blue-dataflow.md` | M2.7 | Data validation/transformation/storage |
+| `audit-blue-error.md` | M2.7 | Error swallow/leak/cascade patterns |
+| `audit-blue-resource.md` | M2.7 | Connection/timer/handle leaks |
+| `audit-red-team.md` | M3 (cross-model) | 4-step attack: trace→mutation→cousin→verdict |
+| `audit-aar.md` | M2.7 | 4 questions: plan/outcome/why/improve |
+
+Each agent operates INDEPENDENTLY with its own ~50-line `.md` prompt + briefing JSON.
+No shared pre-query — no Bandwagon. Spawned via `tools/run-blue-agent.ts`.
+
 ## What — 12 phases (v4 adds Phase 0.5 Baseline Load)
 
 | Phase | Name | Output |
@@ -82,7 +109,7 @@ behind shallow, multi-loop audits:
 | **1.0** | Pre-query (mandatory) | `pre-query-{round}.json` |
 | **1.1–1.4** | SBL functional/practice/contract/journey | `sbl-v3.json` |
 | **1.5** | **Test pyramid setup** (v3.5) | `tests/{unit,integration,contract,e2e,property,chaos}/` |
-| **2** | 7-agent parallel audit | Findings JSON |
+| **2** | 7-agent parallel (v4.3: 5 dedicated audit sub-agents) | Findings JSON |
 | **3** | Arbitration + 3-layer root cause | Deduplicated + severity-tiered |
 | **4** | Fix (3 modes) | Modified source + git diff |
 | **4.5** | **Test author** (v3.5) | `tests/{unit,property,...}/f-{id}.test.ts` |

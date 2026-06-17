@@ -6,6 +6,38 @@ Format: [Semantic Versioning](https://semver.org/)
 
 ---
 
+## [4.3.0] — 2026-06-18 — 7-Agent Multi-Agent Protocol
+
+### Added
+- **7 dedicated sub-agents** in `agents/` with independent .md prompts
+- **`tools/run-blue-agent.ts`** — spawn Blue agent, validate output, retry
+- **`opencode.json`** — registered 7 sub-agents (Blue=M2.7, Red=M3)
+- Agents: `audit-blue-security/concurrency/dataflow/error/resource`, `audit-red-team`, `audit-aar`
+
+### Solved
+- Bandwagon: each agent has UNIQUE prompt + briefing (not shared SKILL.md)
+- L5 Multi-Agent Protocol: communication via JSON files, not free text
+- Execution reliability: `run-blue-agent.ts` replaces manual `read -r` blocks
+
+---
+
+## [4.2.0] — 2026-06-18 — 6-Layer Defense Pipeline
+
+### Added
+- L1 Constrained Decoding: `response_format: { type: "json_object" }` on M3 API
+- L2 `validate-retry.ts`: schema validation + JSON repair + 3x exponential backoff
+- L2 Schemas: `finding.schema.json`, `attack-result.schema.json`
+- P1 Depth Gate: `validate-causal-chain.sh` (chain ≥3 steps, word overlap <0.7)
+- L3 Tool Standardization: `read -t 300`, dedup output pipe fix
+- L6 Circuit Breaker: 5min/phase timeout, 3 failures → abort
+
+### Fixed
+- Red Team failure: 33% (5/15) → target <5%
+- Pipeline deadlocks: 3x `read -r` → `read -t 300` auto-proceed
+- P0 regression: `|| warn` → `|| exit 1` (blocks pipeline)
+
+---
+
 ## [4.0.0] — 2026-06-18 — Layered Adversarial Audit (current, tagged)
 
 **Status: stable. Validated on English-CET (30k LoC).**
