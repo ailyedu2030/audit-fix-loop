@@ -1,6 +1,6 @@
 # Tools
 
-Mechanical enforcement utilities for audit-fix-loop-v3.
+Mechanical enforcement utilities for super-fix.
 
 All tools exit with structured JSON to stderr/stdout for machine
 parsing. Exit codes: `0` = pass, `1` = fail, `2` = error.

@@ -1,5 +1,5 @@
 #!/bin/bash
-# audit-fix-loop-v3 收敛判定工具 v3.3
+# super-fix 收敛判定工具 v3.3
 # 用法: ./convergence-check.sh [options] <current-round-json> <round-number> [first-round-json]
 # 必传: --findings-db=<db.json> --first-round-total=<N>
 # 可选: --webfetch-trace=<tr.jsonl> --spot-check=N

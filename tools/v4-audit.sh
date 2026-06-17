@@ -16,7 +16,7 @@
 
 set -uo pipefail
 
-TOOL_DIR=~/.config/opencode/skills/audit-fix-loop-v3/tools
+TOOL_DIR=~/.config/opencode/skills/super-fix/tools
 AUDIT_CACHE=".audit-cache"
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 

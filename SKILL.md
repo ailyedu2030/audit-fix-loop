@@ -1,9 +1,9 @@
 ---
-name: audit-fix-loop-v3
+name: super-fix
 version: 4.0.0
 description: 系统性零信任审查与修复。v4 解决 4 大根因 (Bandwagon/File-local/Self-referential/Single-loop)。3 层系统 (Subsystem/Adversarial/Learning)：5 独立 lens Blue Team + 跨模型 M3 Red Team + AAR 双环学习。
 allowed-tools: [Read, Write, Edit, Bash, Grep, Glob, Task, WebFetch, skill]
-supersedes: [audit-fix-verify, audit-fix-loop-v3.3, audit-fix-loop-v3.4, audit-fix-loop-v3.5, audit-fix-loop-v3.6, audit-fix-loop-v3.7]
+supersedes: [audit-fix-verify, audit-fix-loop-v3.3, audit-fix-loop-v3.4, audit-fix-loop-v3.5, audit-fix-loop-v3.6, audit-fix-loop-v3.7, audit-fix-loop-v3]
 ---
 
 # Audit → Fix → Loop v4

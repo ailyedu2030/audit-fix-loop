@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to audit-fix-loop-v3.
+All notable changes to super-fix.
 
 Format: [Semantic Versioning](https://semver.org/)
 

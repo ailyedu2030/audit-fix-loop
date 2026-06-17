@@ -1,4 +1,4 @@
-# audit-fix-loop-v3
+# super-fix
 
 Systematic zero-trust audit & fix loop for AI coding agents.
 **30 tools, 7 specialized agents, 6-layer defense pipeline.**
@@ -29,10 +29,10 @@ tool standardization → logit guard → multi-agent protocol → circuit breake
 ## Quick Start
 
 ```bash
-git clone https://github.com/ailyedu2030/audit-fix-loop.git ~/.config/opencode/skills/audit-fix-loop-v3
+git clone https://github.com/ailyedu2030/audit-fix-loop.git ~/.config/opencode/skills/super-fix
 
 # Run a full audit
-bash ~/.config/opencode/skills/audit-fix-loop-v3/tools/v4-audit.sh
+bash ~/.config/opencode/skills/super-fix/tools/v4-audit.sh
 ```
 
 ## Agents
@@ -90,7 +90,7 @@ Full list: `tools/README.md`.
 
 ```bash
 git clone https://github.com/ailyedu2030/audit-fix-loop.git \
-  ~/.config/opencode/skills/audit-fix-loop-v3
+  ~/.config/opencode/skills/super-fix
 ```
 
 ## Docs
