@@ -107,38 +107,34 @@ step_2_briefings() {
   gate "briefings" "[ -f $AUDIT_CACHE/briefings/blue_1.json ]"
 }
 
-# Step 3: Blue team (manual — requires running 5 agents with each briefing)
+# Step 3: Blue team — prepare agent task prompts for orchestrator
 step_3_blue_team() {
   if [ -d "$AUDIT_CACHE/findings" ] && [ "$(ls -A "$AUDIT_CACHE/findings" 2>/dev/null)" ]; then
     log "Step 3: Findings exist, skipping blue team"
     return 0
   fi
+  log "Step 3: Preparing Blue Team task prompts..."
+  for briefing in "$AUDIT_CACHE/briefings"/audit-blue-*.json; do
+    [ -f "$briefing" ] || continue
+    agent=$(basename "$briefing" .json)  # e.g. audit-blue-security
+    log "  Task: $agent ← $briefing"
+    npx tsx "$TOOL_DIR/run-blue-agent.ts" "$agent" "$briefing" 2>&1 | tail -2 || warn "$agent task prep failed"
+  done
   log ""
   warn "================================================"
-  warn "MANUAL STEP: Run 5 Blue Team agents"
-  warn "Each agent reads ONLY its briefing in:"
-  warn "  $AUDIT_CACHE/briefings/blue_1.json ... blue_5.json"
-  warn ""
-  warn "Each agent outputs to:"
-  warn "  $AUDIT_CACHE/findings/blue_1.json ... blue_5.json"
-  warn ""
-  warn "After all 5 agents done, press ENTER to continue"
+  warn "ORCHESTRATOR: Use Task tool to spawn each agent:"
+  warn "  Read task from: .audit-cache/findings/task-audit-blue-*.json"
+  warn "  Each task contains: agent name + prompt + expected output path"
   warn "================================================"
   read -r -t 300 _ || warn "Blue team timeout — proceeding with existing findings"
-  gate "blue-team" "[ -d $AUDIT_CACHE/findings ] && [ \$(ls $AUDIT_CACHE/findings/*.json 2>/dev/null | wc -l) -ge 1 ]"
+  gate_with_retry "blue-team" "[ -d $AUDIT_CACHE/findings ] && [ \$(ls $AUDIT_CACHE/findings/audit-blue-*.json 2>/dev/null | wc -l) -ge 3 ]" 2
 }
 
-# Step 4: Red team
+# Step 4: Red team — auto via red-team-runner with validate-retry
 step_4_red_team() {
-  log "Step 4: Red team attack (using different model)..."
-  npx tsx "$TOOL_DIR/red-team-attack.ts" 2>&1 | tail -10 || { err "red-team briefing failed"; return 1; }
-  warn ""
-  warn "================================================"
-  warn "MANUAL STEP: Run Red Team model (M3) on each briefing"
-  warn "Output: $AUDIT_CACHE/red-team-attacks/<id>_result.json"
-  warn "================================================"
-  read -r -t 300 _ || warn "Step timeout — proceeding automatically"
-  npx tsx "$TOOL_DIR/red-team-verify.ts" 2>&1 | tail -15 || { err "red-team-verify failed"; return 1; }
+  log "Step 4: Red team attacking with M3 (cross-model, auto-retry)..."
+  npx tsx "$TOOL_DIR/red-team-runner.ts" 2>&1 | tail -10 || { err "red-team attack failed"; return 1; }
+  npx tsx "$TOOL_DIR/red-team-verify.ts" 2>&1 | tail -10 || warn "red-team-verify had issues"
 }
 
 # Step 5: AAR

@@ -194,14 +194,19 @@ function main() {
       ],
     };
 
-    const filePath = path.join(OUTPUT_DIR, `blue_${i + 1}.json`);
+    const briefingName = `audit-blue-${lens.name}`; // e.g. audit-blue-security
+    const filePath = path.join(OUTPUT_DIR, `${briefingName}.json`);
     fs.writeFileSync(filePath, JSON.stringify(briefing, null, 2));
   }
 
   console.log(`=== Generated ${N} Blind Briefings ===`);
-  for (let i = 1; i <= N; i++) {
-    const b = JSON.parse(fs.readFileSync(path.join(OUTPUT_DIR, `blue_${i}.json`), 'utf-8'));
-    console.log(`  blue_${i}: lens=${b.lens}, subsystem=${b.subsystem_focus}, entry=${b.entry_file}`);
+  for (let i = 0; i < N; i++) {
+    const lens = LENSES[i % LENSES.length];
+    const fileName = `audit-blue-${lens.name}.json`;
+    if (fs.existsSync(path.join(OUTPUT_DIR, fileName))) {
+      const b = JSON.parse(fs.readFileSync(path.join(OUTPUT_DIR, fileName), 'utf-8'));
+      console.log(`  audit-blue-${lens.name}: lens=${b.lens}, subsystem=${b.subsystem_focus}, entry=${b.entry_file}`);
+    }
   }
   console.log(`\nOutput: ${OUTPUT_DIR}/`);
   console.log(`\nNext: each agent reads ONLY its briefing (Bandwagon avoided)`);

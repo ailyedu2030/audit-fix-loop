@@ -5,7 +5,7 @@
 
 ## Protocol
 
-1. READ your briefing from `.audit-cache/briefings/blue_SECURITY.json`
+1. READ your briefing from `.audit-cache/briefings/audit-blue-security.json`
 2. Scan your assigned entry file and all its imports
 3. Look for security signals:
    - Missing authMiddleware on routes
@@ -17,7 +17,7 @@
    - Hardcoded secrets or API keys
 4. For EACH finding, trace to ROOT CAUSE (≥3 causal chain steps)
 5. Find COUSIN BUGS: 3 other files with the same pattern
-6. Output to `.audit-cache/findings/blue_SECURITY.json`
+6. Output to `.audit-cache/findings/audit-blue-security.json`
 
 ## Finding Format (strict)
 
@@ -40,9 +40,13 @@
 }
 ```
 
+
 ## Rules
 - Do NOT report cosmetic issues (whitespace, naming, comments)
 - Do NOT report findings outside your assigned subsystem
-- If 0 findings, output `{"findings": [], "blind_spot": "reason no findings found"}`
 - causal_chain MUST have ≥3 entries
 - root_cause must be ≥20 characters and NOT restate the description
+- If 0 findings, output `{"findings": [], "blind_spot": "reason no findings found"}`
+- Output format: see `schemas/finding.schema.json`
+
+**Focus**: AUTHENTICATION and ACCESS CONTROL — who can reach SQL/AI call sites, what guards block them.

@@ -1,163 +1,104 @@
 /**
- * run-blue-agent.ts (v4.3.0)
- * Spawn a Blue Team agent with its briefing, validate output, and retry on failure.
+ * run-blue-agent.ts (v4.4.0) — Fixed: agent dispatch through orchestrator.
  *
- * Uses OpenCode's Task tool to spawn a subagent with the agent's .md file as prompt.
- * Falls back to direct LLM access if Task is unavailable.
+ * v4.3 BUG: called `opencode task` CLI — never worked (no OpenCode context in batch).
+ * v4.4 FIX: produces a ready-to-use Task prompt that the ORCHESTRATOR sends via Task tool.
  *
- * v4.3 replaces: manual Phase 2 orchestration (read -r _ blocks)
- * v4.3 solves: Bandwagon effect (each agent has DIFFERENT prompt + briefing)
+ * The orchestrator (using super-fix SKILL.md with Task permission) must:
+ *   1. Run this tool to generate the agent prompt
+ *   2. Use Task tool to spawn the sub-agent with that prompt
+ *   3. Run validate-finding.ts on the output
  *
- * Usage:
- *   npx tsx tools/run-blue-agent.ts <agent_name> <briefing_file>
- *
- * Agent names: audit-blue-security | audit-blue-concurrency |
- *              audit-blue-dataflow | audit-blue-error | audit-blue-resource
- *
- * Output: .audit-cache/findings/{agent_name}.json
+ * Also runs causal chain validator post-agent.
  */
-import { execSync } from 'child_process';
+
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 
 const AGENTS_DIR = join(dirname(__dirname), 'agents');
 const OUTPUT_DIR = '.audit-cache/findings';
 
-interface AgentConfig {
-  name: string;
-  model: string;
-  promptFile: string;
-  briefingFile: string;
-  outputFile: string;
-}
-
-function spawnAgent(config: AgentConfig): string {
-  // Load agent prompt
-  const agentPrompt = readFileSync(join(AGENTS_DIR, config.promptFile), 'utf-8');
-
-  // Load briefing
-  const briefing = JSON.parse(readFileSync(config.briefingFile, 'utf-8'));
-
-  // Build the task prompt: agent system prompt + briefing data
-  const taskPrompt = `${agentPrompt}
-
-## YOUR BRIEFING
-
-${JSON.stringify(briefing, null, 2)}
-
-## OUTPUT
-
-Output findings JSON to: ${config.outputFile}
-Use Write tool to save your findings.
-
-Do NOT output anything else. Do NOT add explanations. Just find bugs and write the JSON.`;
-
-  // Try OpenCode Task tool via CLI
-  try {
-    const result = execSync(
-      `opencode task --agent=${config.name} "${taskPrompt.replace(/"/g, '\\"')}" 2>&1`,
-      { encoding: 'utf-8', timeout: 900000, maxBuffer: 10 * 1024 * 1024 }
-    );
-    return result;
-  } catch (e) {
-    // Fallback: if opencode CLI not available, just log and proceed
-    console.warn(`[run-blue-agent] opencode CLI unavailable, agent not spawned`);
-    return '';
-  }
-}
-
-function validateOutput(file: string): boolean {
-  if (!existsSync(file)) return false;
-
-  try {
-    const data = JSON.parse(readFileSync(file, 'utf-8'));
-
-    // Check findings array exists
-    if (!data.findings || !Array.isArray(data.findings)) {
-      console.warn(`[run-blue-agent] ${file}: no findings array`);
-      return false;
-    }
-
-    // If no findings, check blind_spot field
-    if (data.findings.length === 0 && !data.blind_spot) {
-      console.warn(`[run-blue-agent] ${file}: 0 findings, no blind_spot`);
-      // Don't reject — some files genuinely have no bugs
-    }
-
-    // Quick validation per finding
-    for (const f of data.findings) {
-      if (!f.id || !f.module || !f.severity || !f.description || !f.root_cause) {
-        console.warn(`[run-blue-agent] ${file}: finding ${f.id || '?'} missing required fields`);
-        return false;
-      }
-      if (!f.causal_chain || f.causal_chain.length < 2) {
-        console.warn(`[run-blue-agent] ${file}: finding ${f.id} causal chain too short`);
-        return false;
-      }
-    }
-
-    return true;
-  } catch (e) {
-    console.warn(`[run-blue-agent] ${file}: JSON parse error`);
-    return false;
-  }
-}
-
-async function main() {
+function main() {
   const args = process.argv.slice(2);
   if (args.length < 2) {
     console.error('Usage: run-blue-agent.ts <agent_name> <briefing_file>');
     console.error('  agent_name: audit-blue-security | audit-blue-concurrency | ...');
-    console.error('  briefing_file: .audit-cache/briefings/blue_SECURITY.json');
+    console.error('  briefing_file: .audit-cache/briefings/audit-blue-security.json');
     process.exit(2);
   }
 
   const [agentName, briefingFile] = args;
-  const safeName = agentName.replace('audit-', '').replace(/blue-/g, '').toUpperCase();
+  const agentFile = join(AGENTS_DIR, `${agentName}.md`);
   const outputFile = join(OUTPUT_DIR, `${agentName}.json`);
+
+  if (!existsSync(agentFile)) {
+    console.error(`Agent file not found: ${agentFile}`);
+    process.exit(1);
+  }
+  if (!existsSync(briefingFile)) {
+    console.error(`Briefing not found: ${briefingFile}`);
+    process.exit(1);
+  }
 
   if (!existsSync(OUTPUT_DIR)) mkdirSync(OUTPUT_DIR, { recursive: true });
 
-  const config: AgentConfig = {
-    name: agentName,
-    model: 'MiniMax-M2.7',
-    promptFile: `${agentName}.md`,
-    briefingFile,
-    outputFile,
-  };
+  const agentPrompt = readFileSync(agentFile, 'utf-8');
+  const briefing = JSON.parse(readFileSync(briefingFile, 'utf-8'));
 
-  // Phase 1: Spawn agent
-  console.log(`[run-blue-agent] Spawning ${agentName} with briefing ${briefingFile}...`);
-  const result = spawnAgent(config);
+  // Build the Task prompt for the orchestrator
+  const task = {
+    agent: agentName,
+    prompt: `${agentPrompt}
 
-  // Phase 2: Validate output
-  await new Promise(r => setTimeout(r, 2000)); // Let agent write file
+## YOUR BRIEFING (from ${briefingFile})
 
-  if (existsSync(outputFile)) {
-    const valid = validateOutput(outputFile);
-    if (valid) {
-      console.log(`[run-blue-agent] ✓ ${agentName}: findings valid`);
-    } else {
-      console.warn(`[run-blue-agent] ⚠ ${agentName}: findings need review`);
+${JSON.stringify(briefing, null, 2)}
+
+## EXECUTION INSTRUCTIONS
+
+1. READ the entry file: ${briefing.entry_file}
+2. SCAN for signals matching your lens: ${agentName}
+3. For each finding, trace to ROOT CAUSE (≥3 causal chain steps)
+4. OUTPUT findings to: ${outputFile} (use Write tool)
+
+## OUTPUT FORMAT
+
+Write a JSON file to ${outputFile}:
+{
+  "agent": "${agentName}",
+  "lens": "${briefing.lens}",
+  "findings": [
+    {
+      "id": "F-XXX",
+      "module": "path/to/file.ts",
+      "function": "functionName",
+      "pattern": "issue_pattern",
+      "severity": "P0|P1|P2|P3",
+      "description": "What the bug is",
+      "root_cause": "Why the architecture allowed it (≥20 chars)",
+      "causal_chain": ["step1", "step2", "step3"],
+      "cousin_files": ["file1.ts", "file2.ts", "file3.ts"],
+      "fix_recommendation": "How to fix it"
     }
-  } else {
-    // Agent didn't produce output — write empty findings
-    console.warn(`[run-blue-agent] ✗ ${agentName}: no output produced`);
-    writeFileSync(outputFile, JSON.stringify({
-      findings: [],
-      blind_spot: 'Agent failed to produce output — manual review required',
-      agent: agentName,
-    }, null, 2));
-  }
-
-  // Phase 3: Run causal chain validator
-  try {
-    execSync(`bash tools/validate-causal-chain.sh ${outputFile}`, { encoding: 'utf-8', timeout: 10000 });
-  } catch (e) {
-    console.warn(`[run-blue-agent] ⚠ ${agentName}: causal chain validation issues`);
-  }
-
-  console.log(`[run-blue-agent] ${agentName} done → ${outputFile}`);
+  ],
+  "blind_spot": "Reason if no findings found (optional)"
 }
 
-main().catch(e => { console.error(e); process.exit(1); });
+Do NOT output anything except the findings file.`,
+    output: outputFile,
+  };
+
+  // Write task instructions for orchestrator
+  const taskFile = join(OUTPUT_DIR, `task-${agentName}.json`);
+  writeFileSync(taskFile, JSON.stringify(task, null, 2));
+
+  console.log(`Task prepared: ${taskFile}`);
+  console.log(`Output expected: ${outputFile}`);
+  console.log('');
+  console.log(`ORCHESTRATOR: Use Task tool to spawn "${agentName}" sub-agent:`);
+  console.log(`  subagent_type: "${agentName}"`);
+  console.log(`  prompt: read task from ${taskFile}`);
+  console.log(`  Expected output: ${outputFile}`);
+}
+
+main();

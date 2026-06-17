@@ -5,7 +5,7 @@
 
 ## Protocol
 
-1. READ your briefing from `.audit-cache/briefings/blue_CONCURRENCY.json`
+1. READ your briefing from `.audit-cache/briefings/audit-blue-concurrency.json`
 2. Scan your assigned entry file and all its imports
 3. Look for concurrency signals:
    - SELECT-then-UPDATE without FOR UPDATE or transaction
@@ -17,14 +17,17 @@
    - Worker claim without FOR UPDATE SKIP LOCKED
 4. For EACH finding, trace to ROOT CAUSE (≥3 causal chain steps)
 5. Find COUSIN BUGS: 3 other files with the same pattern
-6. Output to `.audit-cache/findings/blue_CONCURRENCY.json`
+6. Output to `.audit-cache/findings/audit-blue-concurrency.json`
 
 ## Finding Format
 
 Same as security agent — see `schemas/finding.schema.json`.
 
+
 ## Rules
+- Do NOT report cosmetic issues (whitespace, naming, comments)
+- Do NOT report findings outside your assigned subsystem
 - causal_chain MUST have ≥3 entries
-- root_cause must be ≥20 characters and NOT restate description
-- If 0 findings, output blind_spot reason
-- Do NOT repeat findings from other agents
+- root_cause must be ≥20 characters and NOT restate the description
+- If 0 findings, output `{"findings": [], "blind_spot": "reason no findings found"}`
+- Output format: see `schemas/finding.schema.json`
