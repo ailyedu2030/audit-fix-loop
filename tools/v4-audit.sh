@@ -208,6 +208,15 @@ step_7_regression() {
 
 # Main
 main() {
+  # Parse flags
+  FULL_MODE=false
+  for arg in "$@"; do
+    case "$arg" in
+      --full) FULL_MODE=true ;;
+      --allow-empty) ALLOW_EMPTY=true ;;
+    esac
+  done
+
   log "=== v4 Audit Cycle ==="
   log ""
 
@@ -258,19 +267,58 @@ main() {
 
   step_6_dedup
   step_7_regression
-  
+
   log ""
-  log "=== v4 Audit Cycle Complete ==="
+  log "=== Base Pipeline Complete ==="
+
+  # --full mode: extended phases (Fix → Test → Verify → Certify)
+  if [ "$FULL_MODE" = true ] && [ -f "$AUDIT_CACHE/findings.json" ]; then
+    log ""
+    log "=== Extended Phases (--full mode) ==="
+
+    # Phase 4: Fix P0/P1 findings
+    log "Phase 4: Auto-fix P0/P1 findings..."
+    local p0p1_count
+    p0p1_count=$(jq -r '[.findings[] | select(.severity == "P0" or .severity == "P1")] | length' "$AUDIT_CACHE/findings.json" 2>/dev/null || echo "0")
+    if [ "$p0p1_count" -gt 0 ]; then
+      jq -r '.findings[] | select(.severity == "P0" or .severity == "P1") | .id' "$AUDIT_CACHE/findings.json" | while read -r fid; do
+        log "  Fixing: $fid"
+        npx tsx "$TOOL_DIR/apply-fix.ts" "$AUDIT_CACHE/findings.json" "$fid" 2>&1 | tail -2 || warn "fix $fid failed"
+      done
+    else
+      log "  No P0/P1 findings to fix"
+    fi
+
+    # Phase 5: Static
+    log "Phase 5: Static verification..."
+    if npm run lint >/dev/null 2>&1; then
+      log "  ✓ tsc --noEmit passed"
+    else
+      warn "  tsc --noEmit has errors — fix before continuing"
+    fi
+
+    # Phase 5.8: Mutation
+    log "Phase 5.8: Mutation test..."
+    for f in $(git diff --name-only HEAD 2>/dev/null | grep -E '\.(ts|tsx)$' | head -5); do
+      [ -f "$f" ] || continue
+      bash "$TOOL_DIR/sed-mutation-test.sh" --auto --target="$f" 2>&1 | grep -E "Results|failed" || true
+    done
+
+    # Phase 7: Final certification
+    log "Phase 7: Final certification..."
+    if [ -f "$AUDIT_CACHE/audit_state.json" ]; then
+      bash "$TOOL_DIR/gate-check.sh" --required-phase=PHASE_7_FINAL "$AUDIT_CACHE/audit_state.json" 2>&1 | tail -3 || warn "Phase 7 gate not fully satisfied"
+    fi
+
+    log ""
+    log "=== Full Audit Cycle Complete (P0→P3) ==="
+  fi
+
   log "Outputs:"
   log "  - $AUDIT_CACHE/subsystem-manifest.json"
   log "  - $AUDIT_CACHE/flow-trace.json"
-  log "  - $AUDIT_CACHE/briefings/blue_*.json"
-  log "  - $AUDIT_CACHE/findings/blue_*.json"
-  log "  - $AUDIT_CACHE/red-team-attacks/*_result.json"
-  log "  - $AUDIT_CACHE/red-team-summary.json"
-  log "  - $AUDIT_CACHE/aar.json"
-  log "  - $AUDIT_CACHE/aar-history/<id>.json"
-  log "  - $AUDIT_CACHE/blind-spot-registry.json"
+  log "  - $AUDIT_CACHE/findings.json"
+  log "  - $AUDIT_CACHE/aar-history/"
 }
 
 main
