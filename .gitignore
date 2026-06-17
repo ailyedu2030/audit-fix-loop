@@ -1,0 +1,10 @@
+# v3.3 baseline backups
+.backup-v33/
+
+# Session artifacts (mirrors project .audit-cache)
+/.audit-cache/
+*.tmp
+*.bak
+
+# OS
+.DS_Store

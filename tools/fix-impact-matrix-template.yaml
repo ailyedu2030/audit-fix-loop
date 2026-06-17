@@ -1,0 +1,46 @@
+# fix-impact-matrix-template.yaml
+# audit-fix-loop-v3 修复影响矩阵模板
+# 每个修复前必须填写
+
+fix_id: "R{ROUND}-{CATEGORY}-{N}"
+severity: P0 | P1 | P2 | P3
+category: security | data | functional | performance | observability | a11y | ux | contract
+
+change:
+  before: "改动前代码或行为的一句话描述"
+  after: "改动后代码或行为的一句话描述"
+  files:
+    - path: "src/xxx.ts"
+      lines: "123-125"
+      diff: "+1 -2"
+
+affected_paths:
+  - description: "端点 X 响应时间变化"
+    impact: "+50ms"
+  - description: "DB 表 Y 写入路径变化"
+    impact: "新增 INSERT 路径"
+  - description: "前端组件 Z 状态变化"
+    impact: "增加 mountedRef 守卫"
+
+trade_offs:
+  - option: "方案 A：描述"
+    pro: "优点"
+    con: "缺点"
+  - option: "方案 B：描述"
+    pro: "优点"
+    con: "缺点"
+  decision: "选择方案 A 的理由"
+
+rollback_plan: "如何回滚（git revert / 手动回退）"
+
+regression_check:
+  description: "如何验证不引入新问题"
+  commands:
+    - "npm run lint"
+    - "npx tsc --noEmit"
+    - "npm run build"
+  manual_check: "浏览器打开受影响页面确认 X 正常工作"
+
+test_command: "验证命令（如果有测试）"
+
+cannot_fix_reason: null | "external_dependency" | "data_migration" | "out_of_scope" | "missing_infrastructure" | "design_tradeoff"
