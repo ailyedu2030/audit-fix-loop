@@ -246,6 +246,10 @@ main() {
   log "Assembling findings.json from agent outputs..."
   bash "$TOOL_DIR/arbitrate-findings.sh" "$AUDIT_CACHE/findings" "$AUDIT_CACHE/findings.json" || warn "arbitration had issues"
 
+  # Depth gate: reject shallow findings (causal_chain < 3 steps)
+  log "Running causal chain depth validator..."
+  bash "$TOOL_DIR/validate-causal-chain.sh" --all "$AUDIT_CACHE/findings" 2>&1 | tail -3 || warn "some findings lack depth — see above"
+
   step_4_red_team || exit 1
 
   step_5_aar || exit 1
