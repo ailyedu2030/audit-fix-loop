@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Finding",
+  "type": "object",
+  "required": [
+    "id", "module", "function", "pattern", "severity",
+    "description", "root_cause", "causal_chain", "evidence"
+  ],
+  "properties": {
+    "id": { "type": "string", "minLength": 3 },
+    "semantic_hash": { "type": "string" },
+    "module": { "type": "string", "minLength": 3 },
+    "function": { "type": "string", "minLength": 2 },
+    "pattern": { "type": "string", "minLength": 3 },
+    "severity": { "type": "string", "enum": ["P0", "P1", "P2", "P3"] },
+    "description": { "type": "string", "minLength": 20 },
+    "root_cause": { "type": "string", "minLength": 20 },
+    "causal_chain": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 10 },
+      "minItems": 3
+    },
+    "fix_recommendation": { "type": "string", "minLength": 10 },
+    "evidence": {
+      "type": "object",
+      "required": ["file", "lines"],
+      "properties": {
+        "file": { "type": "string" },
+        "lines": { "type": "string" },
+        "diff": { "type": "string" }
+      }
+    },
+    "cross_subsystem": { "type": "boolean" },
+    "cross_subsystem_flows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["flow_id", "from_sub", "to_sub"],
+        "properties": {
+          "flow_id": { "type": "string" },
+          "from_sub": { "type": "string" },
+          "to_sub": { "type": "string" },
+          "archetype_match": { "type": "string" },
+          "same_pattern_in": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "cousin_files": { "type": "array", "items": { "type": "string" } },
+    "test_required": {
+      "type": "object",
+      "required": ["type", "rationale"],
+      "properties": {
+        "type": { "type": "string", "enum": ["unit", "integration", "property", "chaos", "contract"] },
+        "rationale": { "type": "string", "minLength": 10 }
+      }
+    }
+  }
+}

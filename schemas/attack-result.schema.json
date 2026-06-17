@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AttackResult",
+  "type": "object",
+  "required": [
+    "finding_id", "trace_survival", "mutation_survival",
+    "cousin_bugs", "verdict", "reasoning", "confidence"
+  ],
+  "properties": {
+    "finding_id": { "type": "string", "minLength": 3 },
+    "trace_survival": {
+      "type": "object",
+      "required": ["question", "findings"],
+      "properties": {
+        "question": { "type": "string", "minLength": 10 },
+        "findings": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+      }
+    },
+    "mutation_survival": {
+      "type": "object",
+      "required": ["mutations_tested", "killed_by_mutation"],
+      "properties": {
+        "mutations_tested": { "type": "array", "minItems": 1 },
+        "killed_by_mutation": { "type": "boolean" }
+      }
+    },
+    "cousin_bugs": {
+      "type": "object",
+      "required": ["question", "suspected_files"],
+      "properties": {
+        "question": { "type": "string", "minLength": 5 },
+        "suspected_files": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "verdict": { "type": "string", "enum": ["holds", "needs_modification", "wrong"] },
+    "reasoning": { "type": "string", "minLength": 10 },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1, "exclusiveMinimum": 0 }
+  }
+}

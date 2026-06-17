@@ -24,7 +24,7 @@ log() { echo -e "${GREEN}[v4]${NC} $*"; }
 warn() { echo -e "${YELLOW}[v4]${NC} $*"; }
 err() { echo -e "${RED}[v4 ERROR]${NC} $*"; }
 
-# Gate function
+# Gate function with retry (v4.2 P0-L2)
 gate() {
   local step_name="$1"
   local check_command="$2"
@@ -36,6 +36,51 @@ gate() {
     return 1
   fi
 }
+
+# Gate with exponential backoff (v4.2 P0-L2)
+gate_with_retry() {
+  local step_name="$1"
+  local check_command="$2"
+  local max="${3:-3}"
+  for i in $(seq 1 $max); do
+    if eval "$check_command" >/dev/null 2>&1; then
+      log "✓ $step_name passed (attempt $i)"
+      return 0
+    fi
+    if [ $i -lt $max ]; then
+      local delay=$((2 ** (i - 1)))
+      warn "⏳ $step_name failed, retrying in ${delay}s..."
+      sleep $delay
+    fi
+  done
+  err "✗ $step_name failed after $max attempts"
+  return 1
+}
+
+# Phase timeout wrapper (v4.2 P0-L6)
+run_with_timeout() {
+  local phase_name="$1"; shift
+  local timeout="${PHASE_TIMEOUT:-300}"
+  log "▶ $phase_name (timeout: ${timeout}s)..."
+  if timeout "$timeout" "$@" 2>&1; then
+    return 0
+  else
+    local rc=$?
+    if [ $rc -eq 124 ]; then
+      err "✗ $phase_name timed out after ${timeout}s"
+    else
+      err "✗ $phase_name failed (exit $rc)"
+    fi
+    CIRCUIT_FAILURES=$((CIRCUIT_FAILURES + 1))
+    if [ $CIRCUIT_FAILURES -ge 3 ]; then
+      err "CIRCUIT BREAKER OPEN: 3 phase failures — aborting audit"
+      exit 1
+    fi
+    return 1
+  fi
+}
+
+CIRCUIT_FAILURES=0
 
 # Step 0: Subsystem manifest
 step_0_manifest() {
@@ -79,7 +124,7 @@ step_3_blue_team() {
   warn ""
   warn "After all 5 agents done, press ENTER to continue"
   warn "================================================"
-  read -r _
+  read -r -t 300 _ || warn "Blue team timeout — proceeding with existing findings"
   gate "blue-team" "[ -d $AUDIT_CACHE/findings ] && [ \$(ls $AUDIT_CACHE/findings/*.json 2>/dev/null | wc -l) -ge 1 ]"
 }
 
@@ -92,7 +137,7 @@ step_4_red_team() {
   warn "MANUAL STEP: Run Red Team model (M3) on each briefing"
   warn "Output: $AUDIT_CACHE/red-team-attacks/<id>_result.json"
   warn "================================================"
-  read -r _
+  read -r -t 300 _ || warn "Step timeout — proceeding automatically"
   npx tsx "$TOOL_DIR/red-team-verify.ts" 2>&1 | tail -15 || { err "red-team-verify failed"; return 1; }
 }
 
@@ -106,7 +151,7 @@ step_5_aar() {
   warn "Path: $AUDIT_CACHE/aar.json.template"
   warn "Rename to aar.json when done, then press ENTER"
   warn "================================================"
-  read -r _
+  read -r -t 300 _ || warn "Step timeout — proceeding automatically"
   npx tsx "$TOOL_DIR/after-action-review.ts" commit 2>&1 | tail -10 || { err "AAR commit failed"; return 1; }
 }
 
@@ -114,16 +159,20 @@ step_5_aar() {
 step_6_dedup() {
   if [ -f "$AUDIT_CACHE/findings.json" ]; then
     log "Step 6: Cross-run dedup..."
-    bash "$TOOL_DIR/cross-run-dedup.sh" filter "$AUDIT_CACHE/findings.json" 2>&1 | tail -5
+    bash "$TOOL_DIR/cross-run-dedup.sh" filter "$AUDIT_CACHE/findings.json" > "$AUDIT_CACHE/findings-deduped.json" 2>&1
+    log "Deduped output: $AUDIT_CACHE/findings-deduped.json"
   else
     log "Step 6: No findings.json, skipping"
   fi
 }
 
-# Step 7: v3.7 regression suite (don't break what v3 fixed)
+# Step 7: v3.7 regression suite (P0 blocker —【v4.2 L6 fix】)
 step_7_regression() {
   log "Step 7: v3.7 regression suite..."
-  bash "$TOOL_DIR/regression-suite.sh" 2>&1 | tail -10 || warn "regression test had failures"
+  bash "$TOOL_DIR/regression-suite.sh" 2>&1 | tail -10 || {
+    err "✗ P0 regression suite failed — audit cannot proceed"
+    return 1
+  }
 }
 
 # Main

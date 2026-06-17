@@ -107,12 +107,24 @@ Cross-run dedup uses this hash. See `docs/v4-addendum.md` for full schema.
 ## v4 Architecture (see `docs/v4-addendum.md` for full details)
 
 - **Subsystem layer**: `subsystem-manifest.sh` (13 subsystems) → `flow-trace.ts` (32 cross-flows)
-- **Adversarial layer**: Blue Team (5 independent lenses) → Red Team (M3, 4-step attack)
+- **Adversarial layer**: Blue Team (5 independent lenses) → Red Team (M3, 4-step attack, `response_format: json_object`)
 - **Learning layer**: After-Action Review → blind spot registry → method updates
+- **Stability layer** (v4.2): `validate-retry.ts` (schema validation + exponential backoff retry), `validate-causal-chain.sh` (depth gate, rejects findings with <3 causal chain steps or root_cause restating description)
+- **Circuit breaker** (v4.2): per-phase 5min timeout, auto-proceed on manual steps, P0 regression blocks pipeline
 
 ## Tool Index
 
-See `tools/README.md` for full documentation (parameters, exit codes, examples).
+See `tools/README.md` for full documentation. Key tools by layer:
+
+| Layer | Tools |
+|-------|-------|
+| Subsystem | `subsystem-manifest.sh`, `flow-trace.ts` |
+| Adversarial | `generate-blind-briefings.ts`, `red-team-attack.ts`, `red-team-runner.ts`, `red-team-verify.ts` |
+| Learning | `after-action-review.ts`, `gold-set.ts`, `v4-detect-rate.ts` |
+| Stability (v4.2) | `validate-retry.ts`, `validate-causal-chain.sh` |
+| Orchestration | `v4-audit.sh`, `init-audit.sh`, `gate-check.sh`, `advance-phase.ts` |
+| Cross-run | `finding-hash.sh`, `cross-run-dedup.sh`, `baseline-diff.sh`, `regression-suite.sh` |
+| Schemas | `schemas/finding.schema.json`, `schemas/attack-result.schema.json` |
 
 ## Reference
 
