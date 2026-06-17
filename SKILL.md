@@ -1,6 +1,6 @@
 ---
 name: super-fix
-version: 5.3.0
+version: 5.6.0
 description: 系统性零信任审查与修复。6 层防御 (L1-L6)，5 独立 lens 审查 + 跨模型 Red Team + AAR 学习。
 allowed-tools: [Read, Write, Edit, Bash, Grep, Glob, Task, WebFetch, skill]
 supersedes: [audit-fix-verify, audit-fix-loop-v3, audit-fix-loop-v4]

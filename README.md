@@ -3,7 +3,7 @@
 Systematic zero-trust audit & fix loop for AI coding agents.
 **28 tools, 5 independent lenses, 6-layer defense pipeline.**
 
-[![version](https://img.shields.io/badge/version-5.3.0-blue)](SKILL.md)
+[![version](https://img.shields.io/badge/version-5.6.0-blue)](SKILL.md)
 [![tools](https://img.shields.io/badge/tools-28-orange)](tools/)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -95,7 +95,7 @@ git clone https://github.com/ailyedu2030/audit-fix-loop.git \
 | File | Purpose |
 |------|---------|
 | `SKILL.md` (115 lines) | Agent-callable skill definition |
-| `CHANGELOG.md` | Full version history (v3.3 → v5.3) |
+| `CHANGELOG.md` | Full version history (v3.3 → v5.6) |
 | `docs/v4-addendum.md` | v4 architecture, success criteria, gold set |
 | `docs/templates/test-template.ts` | Phase 4.5 test authoring template |
 | `tools/README.md` | Tool documentation (parameters, exit codes) |

@@ -6,6 +6,25 @@ Format: [Semantic Versioning](https://semver.org/)
 
 ---
 
+## [5.6.0] — 2026-06-18 — Full Pipeline: P0→P3, Zero Interruption
+
+### v5.4: Gate Visibility
+- Pipeline table: added Gate column with exact dispatch names (12 of 15 exposed)
+- Extended Phases expanded to 10 rows with all tools documented
+- Deleted dead `mutation-test.sh` (superseded by `sed-mutation-test.sh`)
+
+### v5.5: Zero Interruption
+- Removed both `read -r -t 300` manual barriers (Blue Team, AAR)
+- Pipeline now runs start-to-finish without blocking
+- Gates enforce correctness; no human confirmation needed
+
+### v5.6: --full Mode
+- `bash tools/v4-audit.sh --full` adds: Phase 4 Fix → 5 Static → 5.8 Mutation → 7 Certify
+- Zero stops, zero skips, zero lies (gates enforce every phase)
+- Circuit breaker: 3 failures → abort. Concurrency lock prevents dual audits.
+
+---
+
 ## [5.3.0] — 2026-06-18 — Stable Release
 
 ### Breaking: Dead agent layer removed
