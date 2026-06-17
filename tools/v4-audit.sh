@@ -122,30 +122,26 @@ step_2_briefings() {
   gate "briefings" "[ -f $AUDIT_CACHE/briefings/blue_1.json ]"
 }
 
-# Step 3: Blue team — prepare agent task prompts for orchestrator
+# Step 3: Blue team — orchestrator spawns general agents with lens prompts
 step_3_blue_team() {
   if [ -d "$AUDIT_CACHE/findings" ] && [ "$(ls -A "$AUDIT_CACHE/findings" 2>/dev/null)" ]; then
-    log "Step 3: Findings exist, skipping blue team"
+    log "Step 3: Findings exist, skipping"
     return 0
   fi
-  log "Step 3: Preparing Blue Team task prompts (parallel)..."
-  local briefing_files=("$AUDIT_CACHE/briefings"/audit-blue-*.json)
-  for briefing in "${briefing_files[@]}"; do
+  log "Step 3: Blue Team — spawn 5 general agents (Task subagent_type=general)"
+  log "  Briefings: $AUDIT_CACHE/briefings/"
+  for briefing in "$AUDIT_CACHE/briefings"/audit-blue-*.json; do
     [ -f "$briefing" ] || continue
-    agent=$(basename "$briefing" .json)
-    log "  Task: $agent ← $briefing"
-    (npx tsx "$TOOL_DIR/run-blue-agent.ts" "$agent" "$briefing" 2>&1 | tail -2) &
+    lens=$(jq -r '.lens' "$briefing")
+    entry=$(jq -r '.entry_file' "$briefing")
+    echo "  lens=$lens entry=$entry"
   done
-  wait
-  log "  Task files: $(ls $AUDIT_CACHE/findings/task-audit-blue-*.json 2>/dev/null | wc -l | tr -d ' ') prepared"
   log ""
+  warn "ORCHESTRATOR: spawn general agent for each lens:"
+  warn "  'Audit {files} for {lens} bugs. Signals: {signals}. Write to .audit-cache/findings/audit-blue-{lens}.json'"
   warn "================================================"
-  warn "ORCHESTRATOR: Use Task tool to spawn each agent:"
-  warn "  Read task from: .audit-cache/findings/task-audit-blue-*.json"
-  warn "  Each task contains: agent name + prompt + expected output path"
-  warn "================================================"
-  read -r -t 300 _ || warn "Blue team timeout — proceeding with existing findings"
-  gate_with_retry "blue-team" "[ -d $AUDIT_CACHE/findings ] && [ \$(ls $AUDIT_CACHE/findings/audit-blue-*.json 2>/dev/null | wc -l) -ge 3 ] && [ \$(jq -r '.findings | length' $AUDIT_CACHE/findings/audit-blue-*.json 2>/dev/null | awk '{s+=\$1}END{print s+0}') -gt 0 ]" 2
+  read -r -t 300 _ || warn "Timeout"
+  gate_with_retry "blue-team" "[ -d $AUDIT_CACHE/findings ] && [ \$(ls $AUDIT_CACHE/findings/audit-blue-*.json 2>/dev/null | wc -l) -ge 3 ]" 2
 }
 
 # Step 4: Red team — auto via red-team-runner with validate-retry
