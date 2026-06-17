@@ -38,7 +38,7 @@ bash tools/v4-audit.sh                                  # Full v4 pipeline
 | 1.0 Pre-query | Domain context → `pre-query.json` | — |
 | 1.1–1.4 SBL | Single source of truth (`sbl-functional-template.md`) | `PHASE_1_SBL` |
 | 1.5 Test Pyramid | Verify ≥4 test layers exist | — (check by tool) |
-| 2 Review | 7-agent parallel (v4: 5 blind-briefings) | `PHASE_2_REVIEW` |
+| 2 Review | 5-Blue-agent parallel (`run-blue-agent.ts` spawns audit sub-agents) | `PHASE_2_REVIEW` |
 | 3 Arbitration | Merge findings, assign test_required | `PHASE_3_ARBITRATION` |
 | 4 Fix | Apply patches | `PHASE_4_FIX` |
 | 4.5 Test Author | RED+GREEN+boundary (see `docs/templates/test-template.ts`) | — (check by `test-coverage-check.sh`) |
@@ -51,16 +51,19 @@ bash tools/v4-audit.sh                                  # Full v4 pipeline
 | 6.5 Devil's Advocate | Independent adversarial challenge | `PHASE_6_5_DEVIL_ADVOCATE` |
 | 7 Final | Zero-defect cert (`verify-report.sh` + `regression-suite.sh`) | `PHASE_7_FINAL` |
 
-### v4-specific steps (auto via `v4-audit.sh`)
+### v4.3 Agent-Driven Execution (replaces manual Phase 2/4)
 
-| Step | Tool |
-|------|------|
-| Subsystem + Flow | `subsystem-manifest.sh` → `flow-trace.ts` |
-| Blind Briefings | `generate-blind-briefings.ts` (5 lenses, round-robin) |
-| Blue Team | 5 agents, each reads 1 briefing |
-| Red Team (M3) | `red-team-attack.ts` (4-step: trace→mutation→cousin→verdict) |
-| AAR | `after-action-review.ts` (4 questions: plan/outcome/why/improve) |
-| v3.7 Regression | `regression-suite.sh` (must pass) |
+| Step | Tool | Agent |
+|------|------|-------|
+| Subsystem + Flow | `subsystem-manifest.sh` → `flow-trace.ts` | — |
+| Blind Briefings | `generate-blind-briefings.ts` (5 lenses, round-robin) | — |
+| Blue Team | `run-blue-agent.ts <agent> <briefing>` (5 agents parallel) | `audit-blue-security`, `audit-blue-concurrency`, `audit-blue-dataflow`, `audit-blue-error`, `audit-blue-resource` |
+| Red Team | `red-team-runner.ts` (M3, parallel) | `audit-red-team` |
+| AAR | `after-action-review.ts` | `audit-aar` |
+| v3.7 Regression | `regression-suite.sh` (must pass) | — |
+
+Each agent operates INDEPENDENTLY with its own `.md` prompt and briefing JSON.
+No shared pre-query — no Bandwagon. Signals per lens in `agents/audit-blue-*.md`.
 
 ## Key Rules
 
@@ -119,7 +122,8 @@ See `tools/README.md` for full documentation. Key tools by layer:
 | Layer | Tools |
 |-------|-------|
 | Subsystem | `subsystem-manifest.sh`, `flow-trace.ts` |
-| Adversarial | `generate-blind-briefings.ts`, `red-team-attack.ts`, `red-team-runner.ts`, `red-team-verify.ts` |
+| Adversarial | `generate-blind-briefings.ts`, `red-team-attack.ts`, `red-team-runner.ts`, `red-team-verify.ts`, `run-blue-agent.ts` |
+| Agents (v4.3) | `agents/audit-blue-security.md`, `agents/audit-blue-concurrency.md`, `agents/audit-blue-dataflow.md`, `agents/audit-blue-error.md`, `agents/audit-blue-resource.md`, `agents/audit-red-team.md`, `agents/audit-aar.md` |
 | Learning | `after-action-review.ts`, `gold-set.ts`, `v4-detect-rate.ts` |
 | Stability (v4.2) | `validate-retry.ts`, `validate-causal-chain.sh` |
 | Orchestration | `v4-audit.sh`, `init-audit.sh`, `gate-check.sh`, `advance-phase.ts` |
