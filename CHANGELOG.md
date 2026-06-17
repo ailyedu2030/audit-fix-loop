@@ -6,6 +6,42 @@ Format: [Semantic Versioning](https://semver.org/)
 
 ---
 
+## [5.3.0] — 2026-06-18 — Stable Release
+
+### Breaking: Dead agent layer removed
+
+v4.3 introduced a 7-agent Multi-Agent Protocol that **never worked** — OpenCode's Task
+tool only accepts 8 hardcoded subagent types; custom agents cannot be spawned.
+All agent .md files, opencode.json registrations, and run-blue-agent.ts were dead code.
+
+**v5.x removes the facade.** The honest mechanism: orchestrator spawns 5 `general` agents
+with lens-specific prompts. Same Bandwagon prevention, same depth — but it actually works.
+
+### Pipeline Aligned
+
+- SKILL.md 17-phase aspirational pipeline → 8-step actual v4-audit.sh pipeline
+- gate-check.sh 15-function dispatch wired into v4-audit.sh (previously never called)
+- validate-causal-chain.sh depth gate wired — v5.0 findings: 16/16 pass vs v4.0: 0/22
+- Pre-flight check added (aborts on 0 source files)
+- Concurrency lock (`.audit-cache/.lock/pid`) prevents dual audits
+- Atomic state writes (`.tmp` → rename) prevent corruption on crash
+- Blue agent gate requires non-empty findings
+- Severity classification table (P0/P1/P2/P3 definitions)
+- Phase failure protocol (retry, log, circuit breaker)
+
+### Renamed
+
+- `audit-fix-loop-v3` → `super-fix`
+
+### 3 Expert Review Rounds
+
+- 11 experts, 20 fixes
+- SKILL.md stabilized at 115 lines (from 766)
+- 28 tools, all referenced and wired
+- 489/489 tests, 0 tsc errors
+
+---
+
 ## [4.3.0] — 2026-06-18 — 7-Agent Multi-Agent Protocol
 
 ### Added

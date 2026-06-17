@@ -3,7 +3,7 @@
 Systematic zero-trust audit & fix loop for AI coding agents.
 **28 tools, 5 independent lenses, 6-layer defense pipeline.**
 
-[![version](https://img.shields.io/badge/version-5.0.0-blue)](SKILL.md)
+[![version](https://img.shields.io/badge/version-5.3.0-blue)](SKILL.md)
 [![tools](https://img.shields.io/badge/tools-28-orange)](tools/)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
