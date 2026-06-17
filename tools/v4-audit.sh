@@ -82,6 +82,21 @@ run_with_timeout() {
 
 CIRCUIT_FAILURES=0
 
+# Atomic write: write to .tmp then rename (prevents corruption on crash)
+atomic_write() {
+  local file="$1" content="$2"
+  echo "$content" > "${file}.tmp" && mv "${file}.tmp" "$file"
+}
+
+# Read state safely (with backup)
+read_state() {
+  if [ -f "$AUDIT_CACHE/audit_state.json" ]; then
+    cat "$AUDIT_CACHE/audit_state.json"
+  else
+    echo "{}"
+  fi
+}
+
 # Step 0: Subsystem manifest
 step_0_manifest() {
   if [ -f "$AUDIT_CACHE/subsystem-manifest.json" ] && [ "${FORCE_REGENERATE:-0}" = "0" ]; then
@@ -130,7 +145,7 @@ step_3_blue_team() {
   warn "  Each task contains: agent name + prompt + expected output path"
   warn "================================================"
   read -r -t 300 _ || warn "Blue team timeout — proceeding with existing findings"
-  gate_with_retry "blue-team" "[ -d $AUDIT_CACHE/findings ] && [ \$(ls $AUDIT_CACHE/findings/audit-blue-*.json 2>/dev/null | wc -l) -ge 3 ]" 2
+  gate_with_retry "blue-team" "[ -d $AUDIT_CACHE/findings ] && [ \$(ls $AUDIT_CACHE/findings/audit-blue-*.json 2>/dev/null | wc -l) -ge 3 ] && [ \$(jq -r '.findings | length' $AUDIT_CACHE/findings/audit-blue-*.json 2>/dev/null | awk '{s+=\$1}END{print s+0}') -gt 0 ]" 2
 }
 
 # Step 4: Red team — auto via red-team-runner with validate-retry
