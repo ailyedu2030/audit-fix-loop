@@ -42,7 +42,7 @@ interface Lens {
 
 const LENSES: Lens[] = [
   {
-    name: 'data_flow',
+    name: 'dataflow',
     description: 'Trace data from entry to persistence. Focus on what happens BETWEEN read and write.',
     focus_questions: [
       'What data enters this subsystem from API/UI?',
@@ -72,7 +72,7 @@ const LENSES: Lens[] = [
     ],
   },
   {
-    name: 'error_handling',
+    name: 'error',
     description: 'Find error paths that swallow, leak, or cascade.',
     focus_questions: [
       'What errors are caught and discarded?',
@@ -102,7 +102,7 @@ const LENSES: Lens[] = [
     ],
   },
   {
-    name: 'resource_lifecycle',
+    name: 'resource',
     description: 'Find leaks, double-closes, unclosed resources.',
     focus_questions: [
       'Are connections released on error?',
