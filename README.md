@@ -70,7 +70,8 @@ Full list: `tools/README.md`.
 | Metric | Value |
 |--------|-------|
 | Findings discovered (v4.0 cycle) | 22 (1 P0, 7 P1, 14 P2) |
-| Latest cycle (v5.0) | 35 findings across 5 lenses |
+| Latest cycle (v5.0) | 35 findings, 16/16 pass causal chain depth gate |
+| Depth validation | v5.0: 100% pass vs v4.0: 0% pass (proves gate effectiveness) |
 | Red Team cousin bugs found | 14 (Blue Team missed) |
 | Bugs fixed | 19 across 16 files |
 | Detection rate improvement | 29% → 75% (+46% after AAR) |
@@ -80,7 +81,7 @@ Full list: `tools/README.md`.
 
 - `jq` or `python3` (shell tools)
 - `git` (diff anchoring, state machine persistence)
-- MiniMax API key (for Red Team M3 cross-model attacks; Blue Team runs on M2.7)
+- MiniMax API key (for Red Team M3 cross-model attacks)
 
 ## Install
 
@@ -93,8 +94,8 @@ git clone https://github.com/ailyedu2030/audit-fix-loop.git \
 
 | File | Purpose |
 |------|---------|
-| `SKILL.md` (122 lines) | Agent-callable skill definition |
-| `CHANGELOG.md` | Full version history (v3.3 → v4.3.0) |
+| `SKILL.md` (115 lines) | Agent-callable skill definition |
+| `CHANGELOG.md` | Full version history (v3.3 → v5.3) |
 | `docs/v4-addendum.md` | v4 architecture, success criteria, gold set |
 | `docs/templates/test-template.ts` | Phase 4.5 test authoring template |
 | `tools/README.md` | Tool documentation (parameters, exit codes) |
