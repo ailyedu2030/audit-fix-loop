@@ -39,8 +39,8 @@ bash tools/v4-audit.sh                                  # Full v4 pipeline
 | 1.1–1.4 SBL | Single source of truth (`sbl-functional-template.md`) | `PHASE_1_SBL` |
 | 1.5 Test Pyramid | Verify ≥4 test layers exist | — (check by tool) |
 | 2 Review | 5-Blue-agent parallel (`run-blue-agent.ts` spawns audit sub-agents) | `PHASE_2_REVIEW` |
-| 3 Arbitration | Merge findings, assign test_required | `PHASE_3_ARBITRATION` |
-| 4 Fix | Apply patches | `PHASE_4_FIX` |
+| 3 Arbitration | Merge 5 agent outputs (`arbitrate-findings.sh`), assign test_required | `PHASE_3_ARBITRATION` |
+| 4 Fix | For each finding: read source → verify bug → fix → update state | `PHASE_4_FIX` |
 | 4.5 Test Author | RED+GREEN+boundary (see `docs/templates/test-template.ts`) | — (check by `test-coverage-check.sh`) |
 | 5 Static | `tsc --noEmit` / lint | `PHASE_5_STATIC` |
 | 5.5 Smoke | Happy+error+boundary paths | `PHASE_5_5_SMOKE` |
@@ -90,6 +90,22 @@ No shared pre-query — no Bandwagon. Signals per lens in `agents/audit-blue-*.m
 | `PHASE_6_5_DEVIL_ADVOCATE` | Independent adversarial attack on each finding |
 | `PHASE_7_FINAL` | 0 open, 0 fixing, all verified, P0 regression pass |
 | (tool gates) | `test-coverage-check.sh`, `dynamic-test-runner.sh`, `chaos-test.sh`, `sed-mutation-test.sh` enforce their own phase-specific gates |
+
+## Phase Failure Protocol
+
+- **gate-check.sh exit 1 (fail)**: retry the phase once. If still failing, log to `.audit-cache/phase-errors.json`, ask user for guidance. Do NOT advance to next phase.
+- **gate-check.sh exit 2 (error)**: check `.audit-cache/audit_state.json` exists and is valid JSON. Re-run `init-audit.sh --force` if corrupted.
+- **Circuit breaker**: after 3 phase failures total, abort the audit. Reason logged to `.audit-cache/escalation.json`.
+- **Tool timeout**: each phase has 5min max. On timeout, phase is marked incomplete, audit pauses.
+
+## Phase 4: Apply Patches — Explicit Instructions
+
+For each finding with `status='open'` and `file+line`:
+1. READ the target file at `.module` path
+2. VERIFY the bug reproduces (understand the code path)
+3. FIX using Edit tool — apply the patch from `.fix_recommendation`
+4. UPDATE `audit_state.json`: set `finding.status='fixed'`, add `fix_evidence={file, lines_changed, before_hash, after_hash}`
+5. PROCEED to Phase 4.5 for test authoring
 
 ## Cross-Run Baselines (`.audit-cache/`)
 

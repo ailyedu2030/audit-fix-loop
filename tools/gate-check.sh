@@ -57,11 +57,16 @@ warnings = []
 phase_order = [
     'PHASE_0_ENTRY',
     'PHASE_1_SBL',
+    'PHASE_1_5_TEST_PYRAMID',
     'PHASE_2_REVIEW',
     'PHASE_3_ARBITRATION',
     'PHASE_4_FIX',
+    'PHASE_4_5_TEST_AUTHOR',
     'PHASE_5_STATIC',
     'PHASE_5_5_SMOKE',
+    'PHASE_5_6_DYNAMIC',
+    'PHASE_5_7_CHAOS',
+    'PHASE_5_8_MUTATION',
     'PHASE_6_LOOP',
     'PHASE_6_5_DEVIL_ADVOCATE',
     'PHASE_7_FINAL',
@@ -158,6 +163,53 @@ def check_phase_5_5():
         if sd.get('p0_500_count', 0) > 0:
             errors.append(f"smoke test has {sd.get('p0_500_count')} P0 500-errors")
 
+def check_phase_1_5():
+    # Test pyramid: at least 4 test layers must exist
+    import os
+    layers = ['tests/unit', 'tests/integration', 'tests/contract', 'tests/property', 'tests/chaos']
+    found = sum(1 for d in layers if os.path.isdir(d) and any(f.endswith('.test.') for f in os.listdir(d) if f.endswith('.ts') or f.endswith('.tsx')))
+    if found < 4:
+        errors.append(f"Test pyramid incomplete: {found} layers found, need ≥4")
+
+def check_phase_4_5():
+    # Test authoring: all fixed findings must have test_ids
+    findings = s.get('findings', {})
+    fixed = [fid for fid, f in findings.items() if f.get('status') == 'fixed']
+    no_test = [fid for fid in fixed if not s.get('test_coverage', {}).get(fid, {}).get('test_ids')]
+    if no_test:
+        errors.append(f"{len(no_test)} fixed findings have no test_ids: {', '.join(no_test[:5])}")
+
+def check_phase_5_6():
+    # Dynamic test suite must pass
+    import os, glob
+    dyn = glob.glob(".audit-cache/dynamic-test-*.json")
+    if not dyn:
+        errors.append("Phase 5.6 dynamic test JSON not found")
+    else:
+        with open(max(dyn, key=os.path.getmtime)) as f:
+            dd = json.load(f)
+        if dd.get('failed', 0) > 0:
+            errors.append(f"dynamic test has {dd.get('failed')} failures")
+
+def check_phase_5_7():
+    # Chaos test must pass
+    import os, glob
+    chaos = glob.glob(".audit-cache/chaos-test-*.json")
+    if not chaos:
+        errors.append("Phase 5.7 chaos test JSON not found")
+
+def check_phase_5_8():
+    # Mutation test must achieve ≥4/5 kill rate per file
+    import os, glob
+    mut = glob.glob(".audit-cache/mutation-test-*.json")
+    if not mut:
+        errors.append("Phase 5.8 mutation test JSON not found")
+    else:
+        with open(max(mut, key=os.path.getmtime)) as f:
+            md = json.load(f)
+        if md.get('killed', 0) < 4:
+            errors.append(f"mutation kill rate {md.get('killed')}/5 too low")
+
 def check_phase_6():
     # convergence-check.sh must have been run with exit 0 (or escalate)
     # We track via gates_passed['phase_6_to_6_5']
@@ -195,8 +247,25 @@ def check_phase_7():
             if reason not in whitelist:
                 errors.append(f"{fid} cannot_fix_reason='{reason}' not in whitelist")
 
-# Dispatch
-checker = globals().get(f"check_{required.lower()}")
+# Dispatch — use manual mapping to avoid naming issues with underscores
+dispatch = {
+    'PHASE_0_ENTRY': check_phase_0,
+    'PHASE_1_SBL': check_phase_1,
+    'PHASE_1_5_TEST_PYRAMID': check_phase_1_5,
+    'PHASE_2_REVIEW': check_phase_2,
+    'PHASE_3_ARBITRATION': check_phase_3,
+    'PHASE_4_FIX': check_phase_4,
+    'PHASE_4_5_TEST_AUTHOR': check_phase_4_5,
+    'PHASE_5_STATIC': check_phase_5,
+    'PHASE_5_5_SMOKE': check_phase_5_5,
+    'PHASE_5_6_DYNAMIC': check_phase_5_6,
+    'PHASE_5_7_CHAOS': check_phase_5_7,
+    'PHASE_5_8_MUTATION': check_phase_5_8,
+    'PHASE_6_LOOP': check_phase_6,
+    'PHASE_6_5_DEVIL_ADVOCATE': check_phase_6_5,
+    'PHASE_7_FINAL': check_phase_7,
+}
+checker = dispatch.get(required)
 if checker:
     checker()
 
