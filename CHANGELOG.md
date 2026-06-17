@@ -1,0 +1,203 @@
+# Changelog
+
+All notable changes to audit-fix-loop-v3.
+
+Format: [Semantic Versioning](https://semver.org/)
+
+---
+
+## [3.5.0] — 2026-06-17 — Zero-Trust Edition
+
+### The Problem
+
+After v3.4 audit, user re-ran zero-trust review and discovered:
+- Static review found P0-P3 bugs
+- Agent reported "all fixed"
+- Runtime still had issues
+- 18 verified findings had **zero regression tests**
+- No chaos/mutation coverage
+
+**Paper zero defect ≠ runtime zero defect**.
+
+### What's New
+
+#### Test Pyramid (Phase 1.5, 4.5, 5.6, 5.7, 5.8)
+
+- **Phase 1.5 TEST_PYRAMID**: 6-layer structure required
+  - `tests/unit/`, `tests/integration/`, `tests/contract/`, `tests/e2e/`,
+    `tests/property/`, `tests/chaos/`
+  - gate-check verifies `package.json` has test:unit, test:integration,
+    test:property, test:contract, test:e2e scripts
+- **Phase 4.5 TEST_AUTHOR**: every fixed finding must author ≥1 test
+  (RED + GREEN + boundary)
+- **Phase 5.6 DYNAMIC**: full test pyramid run, not just smoke
+- **Phase 5.7 CHAOS**: fault injection (kill mid-request, restart, concurrent)
+- **Phase 5.8 MUTATION**: reverse-validate test effectiveness
+
+#### New tools (4)
+
+- `tools/test-coverage-check.sh` — every verified finding must have
+  `test_ids` + `mutation_killed=true` in `audit_state.test_coverage`
+- `tools/chaos-test.sh` — 5 fault scenarios
+- `tools/mutation-test.sh` — StrykerJS / mutmut integration
+- `tools/dynamic-test-runner.sh` — detects & runs all test:* scripts
+
+#### Schema additions
+
+- `test_coverage[finding_id] = {test_ids, mutation_killed, test_files}`
+- `test_required = {type, rationale}` on each finding
+- `test_na_reason` field for documented test deferrals
+
+#### New mandatory npm packages
+
+- `fast-check` — property-based testing (or equivalent)
+
+### Why
+
+- "Verified" without test = "paper verified"
+- Mutation test catches false-positive tests
+- Chaos test catches "happy path only" recovery code
+
+### Migration from v3.4
+
+```bash
+# 1. Add test pyramid
+mkdir -p tests/{unit,integration,contract,e2e,property,chaos}
+
+# 2. Install fast-check
+npm install --save-dev fast-check
+
+# 3. Add test scripts to package.json
+"test:unit": "vitest run tests/unit/"
+"test:integration": "vitest run tests/integration/"
+# ... etc
+
+# 4. Update vitest.config.ts include paths
+
+# 5. Author tests for all verified findings (Phase 4.5)
+
+# 6. Run test-coverage-check to identify gaps
+bash tools/test-coverage-check.sh --state=.audit-cache/audit_state.json
+```
+
+### Validation
+
+- English-CET grammar module: 21 findings → 18 verified + 3 cannot_fix
+- 5 P0 findings with regression tests (unit + property)
+- 13 P1-P3 findings with documented `test_na_reason` (deferred to E2E)
+- 229 tests passing across 21 test files
+- `tsc --noEmit`: 0 errors
+- `zero-defect-check`: PASS
+- `test-coverage-check`: WARN (honest 27.8% coverage report)
+
+### Backward-incompatible
+
+- "Zero defect" declaration now requires test coverage proof
+- Skipping test authoring → gate-check refuses Phase 7
+
+---
+
+## [3.4.0] — 2026-06-17 — Mechanical Gates Edition
+
+### The Problem
+
+After v3.3 audit, user caught:
+- Agent declared "all fixed" after P0/P1
+- Skipped P2/P3
+- Wrote "non-blocking" in deferral field (banned by v3.3 SYSTEM_GUARD)
+- LLM self-evaluation unreliable
+
+**Self-evaluation of "complete" = unreliable**.
+
+### What's New
+
+#### State Machine (mandatory)
+
+`.audit-cache/audit_state.json` with:
+- `findings` — every finding's full lifecycle
+- `phases_passed` — phase progression record
+- `gates_passed` — gate validation timestamps
+- `cannot_fix_queue` — items with 5-reason whitelist
+- `deferred_queue` — P3 items with user confirmation
+
+#### Three-state lifecycle
+
+```
+open → fixing → fixed → verified
+                  ↘ cannot_fix (5 whitelisted reasons)
+                  ↘ deferred (P3 only, user confirmation required)
+```
+
+#### New tools (3)
+
+- `tools/gate-check.sh` — phase transition enforcement
+  - `--required-phase=PHASE_X` check
+  - Validates phases_passed sequence
+  - Phase-specific requirements (e.g. PHASE_1 needs SBL files)
+  - Returns PASS / WARN / FAIL / ERROR
+- `tools/verify-report.sh` — final report reverse-validation
+  - Parses Executive Layer table
+  - Compares counts against audit_state.json
+  - Returns FAIL if mismatch (catches fabricated "zero defect")
+- `tools/zero-defect-check.sh` — 0 open verification
+  - Walks findings, checks terminal status
+  - Whitelist check for cannot_fix_reason
+  - P3-only check for deferred
+
+#### P2/P3 explicit defer mechanism
+
+- P2: must be fixed (no defer option)
+- P3: can be deferred only with documented `user_confirm_at`
+- cannot_fix_reason whitelist: `external_dependency` / `data_migration` /
+  `out_of_scope` / `missing_infrastructure` / `design_tradeoff`
+- L3 conflict template for user P3 defer approval
+
+#### Phase 6.5 Devil's Advocate as mandatory independent phase
+
+Not optional. Runs every round. Phase 7 gate refuses if not passed.
+
+### Why
+
+- Self-evaluation of "done" is unreliable across all LLMs
+- Mechanical gates replace trust with verification
+- State machine enables audit resumption across compaction/restart
+
+### Validation
+
+- English-CET grammar module: 21 findings, 18 verified, 3 cannot_fix
+- All 4 P0 have evidence in `fix_evidence.file:line`
+- zero-defect-check.sh returns PASS, verify-report.sh returns PASS
+
+---
+
+## [3.3.0] — 2026-06-17 — Initial Public Release
+
+### The Foundation
+
+- 7-phase audit orchestration (Phase 0–7) + 5.5 (smoke) + 1.0 (pre-query)
+- Result-driven convergence via `tools/convergence-check.sh`
+- 3-layer root cause for P0/P1
+- 7-agent parallel review (Functional, Data, Security, Performance,
+  Observability, A11y, UX, Architect)
+- TOOL_ACTIVITY log mandatory (anti-forgery)
+- cannot_fix_reason whitelist enforcement
+- `.audit-cache/` session layout
+
+### Why v3.3
+
+- v2 (audit-fix-verify) had no convergence check, no smoke test
+- v3.3 added runtime smoke + DB-aware validation
+- v3.3 caught 5 new vulnerabilities in code that passed v2 audit
+
+### Validation
+
+- English-CET writing training: 58 defects → 0 in 8 rounds
+- 5-agent cross validation: 0 false positives, 0 missed critical
+
+---
+
+## Roadmap
+
+- **v3.6**: GitHub Actions integration (auto-run on PR)
+- **v3.7**: OpenTelemetry tracing (audit_state → telemetry)
+- **v4.0**: AI-driven gate threshold tuning (machine-learned)
