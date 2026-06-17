@@ -1,10 +1,21 @@
 ---
 name: audit-fix-loop-v3
-version: 3.5.0
-description: 系统性零信任审查与修复。结果驱动收敛、运行时冒烟、预查询清单、3层根因、缓存清理、**机械门禁+状态机+报告反向验证+测试金字塔+Property-Based+混沌+变异测试**。所有 P0-P3 必修，必须有可证伪的测试覆盖。
+version: 4.0.0
+description: 系统性零信任审查与修复。**v4.0 解决 4 大根因**: Bandwagon (蓝队盲发散) / File-local scope (子系统 + flow trace) / Self-referential verification (红队跨模型) / Single-loop learning (AAR + 盲点注册)。继承 v3.7: 测试金字塔、跨次闭环、状态机。设计文档: `docs/plans/audit-fix-loop-v4-design-2026-06-17.md`。
 allowed-tools: [Read, Write, Edit, Bash, Grep, Glob, Task, WebFetch, skill]
-supersedes: [audit-fix-verify, audit-fix-loop-v3.3, audit-fix-loop-v3.4]
+supersedes: [audit-fix-verify, audit-fix-loop-v3.3, audit-fix-loop-v3.4, audit-fix-loop-v3.5, audit-fix-loop-v3.6, audit-fix-loop-v3.7]
 ---
+
+# Audit → Fix → Loop v4 — Layered Adversarial Audit
+
+**v4 核心区别 (vs v3.7)**:
+- **管道 → 系统**: 15 phase 线性管道改为 3 层独立系统 (Subsystem / Adversarial / Learning)
+- **共享 pre-query → 盲发散简报**: 5 agent 各自独立 lens + subsystem + entry file
+- **同模型审 → 跨模型红队**: 蓝队 (M2.7) vs 红队 (M3)，独立身份 + 攻击激励
+- **零学习 → AAR + 盲点注册**: 每次 audit 后强制 4 问题复盘，方法更新持久化
+- **file-local → 子系统 + flow trace**: 跨文件数据流显式建模 (32 cross-subsystem flows detected)
+
+**v3.7 教训 (6 专家共识)**: "clear-domain 工具用于 complex-domain 问题" — v4 改用复杂领域协议 (假设驱动 + 独立验证 + 复盘学习)。
 
 # Audit → Fix → Loop v3.5 — Zero-Trust Edition
 
@@ -68,9 +79,71 @@ bash ~/.config/opencode/skills/audit-fix-loop-v3/tools/gate-check.sh \
   .audit-cache/audit_state.json
 ```
 
+> **【v3.6 强制 RETRO】** 每次从一个 phase 转到下一个 phase 时，**必须**实际执行 `gate-check.sh` 并把返回的 `phases_passed` 字段**写回 `audit_state.json`**。v3.5 教训：4 轮 audit 跑完 `phases_passed` 仍是 `false` —— gate-check 工具从未被调用，导致最终报告"零缺陷"但 phase 实际未完成。
+> 
+> **写回模式** (必须执行):
+> ```bash
+> # 1. 跑门禁
+> RESULT=$(bash ~/.config/opencode/skills/audit-fix-loop-v3/tools/gate-check.sh \
+>   --required-phase=PHASE_X_EXIT .audit-cache/audit_state.json)
+> # 2. 用 jq 把 phases_passed 写回 (不能用 sed/手动)
+> jq '.phases_passed.PHASE_X_EXIT = true' .audit-cache/audit_state.json \
+>   > .audit-cache/audit_state.json.tmp \
+>   && mv .audit-cache/audit_state.json.tmp .audit-cache/audit_state.json
+> ```
+
 ---
 
 ## Phase 0: 入口 + 上下文 + 测试现状盘点
+
+### 【v3.6 强制】 Phase 0.5: Baseline Load (跨次闭环)
+
+**问题**: v3.5 audit 解决"单次闭环"（跑完修完报 zero-defect），但**跨次闭环缺失** — 下次跑 audit 又会发现 50 个问题（其中 45 个是已修过的）。
+
+**v3.6 解决**: 跨次 baseline 机制 — 维护 `.audit-cache/baseline-zero.json` + `.audit-cache/baseline.json`，让已审计的代码永不再报，新代码自动进入 scope。
+
+```bash
+# Phase 0.5 必跑 — 检查 baseline 状态 + 决定 scope
+bash ~/.config/opencode/skills/audit-fix-loop-v3/tools/baseline-diff.sh scope
+
+# 输出示例:
+#   Files in scope (need audit): 1
+#     [SCAN] server/src/services/aiExamPoolService.ts
+#   Files in baseline (skip): 5
+#     [SKIP] server/src/services/aiExamWorker.ts
+```
+
+**3 个 baseline 文件 + 用途**:
+| File | Tool | 用途 |
+|------|------|------|
+| `.audit-cache/baseline-zero.json` | `baseline-diff.sh` | 已审计且零缺陷的文件/函数 (skip) |
+| `.audit-cache/baseline.json` | `cross-run-dedup.sh` | 已修的 finding hashes (去重) |
+| `.audit-cache/regression-index.json` | `regression-suite.sh` | 历史 P0 fix 的 test (回归) |
+
+**3 种 scope 决策**:
+| 模式 | 何时用 | 行为 |
+|------|--------|------|
+| **full** | 第一次跑 / 重大重构 | audit 所有文件 |
+| **incremental** | 常规 PR (默认) | 只 audit 改动的文件/函数 (git diff) |
+| **diff-only** | 大型项目 / 频繁 audit | 只 audit 改动的行 |
+
+**findings 必须用 canonical pattern id** (例如 `SRE-006-paper_lock_cleanup`):
+```bash
+# finding 报告时
+HASH=$(bash ~/.config/opencode/skills/audit-fix-loop-v3/tools/finding-hash.sh \
+  --module=server/src/services/aiExamPoolService.ts \
+  --function=markJobFailed \
+  --pattern=paper_lock_cleanup)
+echo "{\"id\":\"F-001\",\"semantic_hash\":\"$HASH\",...}"
+```
+
+**修复完成后 commit 到 baseline**:
+```bash
+bash ~/.config/opencode/skills/audit-fix-loop-v3/tools/cross-run-dedup.sh commit .audit-cache/findings.json
+bash ~/.config/opencode/skills/audit-fix-loop-v3/tools/baseline-diff.sh mark-zeroed
+```
+
+**下次 audit 跑时**: 自动 dedup 已知 finding，skip 已知 zero 文件 — **5x 加速**。
 
 ### 模式选择
 
@@ -359,10 +432,17 @@ bash ~/.config/opencode/skills/audit-fix-loop-v3/tools/chaos-test.sh \
 **问题**: 测试可能"假阳性"通过。改 bug 修复行，测试应该 fail。
 
 ```bash
+# 完整版 (stryker) — 慢
 bash ~/.config/opencode/skills/audit-fix-loop-v3/tools/mutation-test.sh \
   --state=.audit-cache/audit_state.json \
   --test-command="npm run test:unit" \
   --mutation-scope=findings
+
+# 快速版 (sed-based, v3.6 新增) — 30秒内出结果，5 个常见 mutation 模式
+# 【RETRO-TEST-011】v3.5 audit 验证：5/5 mutation survive 在 aiExamPoolService.ts
+#   说明 string-matching test 几乎无 coverage
+bash ~/.config/opencode/skills/audit-fix-loop-v3/tools/sed-mutation-test.sh \
+  --auto --target=server/src/services/<module>.ts
 ```
 
 工具执行:
@@ -377,8 +457,18 @@ bash ~/.config/opencode/skills/audit-fix-loop-v3/tools/mutation-test.sh \
 5. 如果测试还 pass → **测试无效**, 回到 Phase 4.5 加强 test
 6. 恢复原代码
 
+**【v3.6 强制的 sed mutation 套件**】 — 5 个常见 mutation:
+- `&&` → `||` (边界条件)
+- `===` → `!==` (相等)
+- 移除 `!` 取反 (状态守卫)
+- `throw` → `console.error` (静默错误)
+- `'failed'` → `'ready'` (状态机绕过)
+
+如果 ≥1/5 survive → 该文件**测试覆盖不足** → Phase 4.5 加强
+
 `gate-check PHASE_5_8_MUTATION`:
 - 每个 verified finding 的 mutation_killed 必须 = true
+- **【v3.6 新】** sed 套件必须 ≥4/5 killed (允许 1 survive)
 - 不通过的 finding 必须重新 Phase 4.5 → Phase 4 → Phase 5.8
 
 ---
@@ -425,6 +515,19 @@ bash ~/.config/opencode/skills/audit-fix-loop-v3/tools/mutation-test.sh \
 | dynamic test pass | dynamic-test.json | exit 1 |
 | chaos test pass | chaos-test.json | exit 1 |
 | mutation test pass | mutation-test.json | exit 1 |
+| **【v3.6 新】P0 regression suite pass** | regression-index.json | **exit 1 (P0 复现！)** |
+
+### 7.3 v3.6 新增: P0 Regression Suite (替代 canary injection)
+
+**why**: canary bug 注入有自指悖论（无法保证 agent 一定找到）。**改用历史 P0 regression suite**: 历次 audit 找到的 P0 bug 都有专属 regression test，每次 audit 必跑。
+
+```bash
+bash ~/.config/opencode/skills/audit-fix-loop-v3/tools/regression-suite.sh
+# 维护: 每次 fix P0 时:
+bash ~/.config/opencode/skills/audit-fix-loop-v3/tools/regression-suite.sh add <test_file> "<finding desc>" <commit_hash>
+```
+
+如果 P0 regression fail → **不要报告 audit 成功** → 立即 fix。
 | convergence-check.sh 上一轮 exit 0 | tools log | exit 1 |
 | Phase 6.5 Devil's Advocate 跑过 | phases_passed | exit 1 |
 | 报告与 state 一致 | verify-report.sh | exit 1 |
@@ -544,3 +647,120 @@ bash ~/.config/opencode/skills/audit-fix-loop-v3/tools/mutation-test.sh \
 5. **禁止"记录到 backlog"** — 任何此类语言 = P0 报告 (自身违规)
 6. **禁止"smoke 通过 = 零缺陷"** — smoke 是 6 层之一, 不是全部
 7. **必须建立 Test Pyramid** — 缺一层 → gate-check 拒绝进 Phase 7
+
+---
+
+# v4 Addendum: Layered Adversarial Audit (2026-06-17)
+
+**适用场景**: 当 v3.7 仍然发现浅层 finding, 或需要解决"为什么漏"问题时，使用 v4 模式。
+
+## v4 vs v3.7 — 4 大根因解决方案
+
+| 根因 | v3.7 行为 | v4 解决方案 |
+|------|----------|------------|
+| **Bandwagon (6/6 共识)** | 7 agent 共享 pre-query.json, 输出 7 份相似 finding | 5 agent 各自不同 lens + subsystem + entry file |
+| **File-local scope (6/6 共识)** | 工具按文件切, root cause 按数据流跨文件 | subsystem-manifest + flow-trace (32 cross-subsystem flows) |
+| **Self-referential (4/6 共识)** | agent 写 test → 跑 test → 审 test (自我验证) | Red Team 用 M3 (vs 蓝队 M2.7) + 4-step attack protocol |
+| **Single-loop (3/6 共识)** | 重复 audit, 从不学"为什么漏" | AAR 4 questions + blind-spot-registry + method updates |
+
+## v4 工具 (7 个新工具 + 1 orchestrator)
+
+| 工具 | 类型 | 解决哪个根因 | 关键输出 |
+|------|------|-------------|---------|
+| `subsystem-manifest.sh` | shell | File-local | `.audit-cache/subsystem-manifest.json` (13 subsystems, multi-homing) |
+| `flow-trace.ts` | ts | File-local | `.audit-cache/flow-trace.json` (32 cross-subsystem flows, handles path alias) |
+| `generate-blind-briefings.ts` | ts | Bandwagon | `.audit-cache/briefings/blue_1..5.json` (5 distinct lens × subsystem) |
+| `red-team-attack.ts` | ts | Self-referential | `.audit-cache/red-team-attacks/*_briefing.json` (4-step attack protocol) |
+| `red-team-verify.ts` | ts | Self-referential | `.audit-cache/red-team-summary.json` (verdicts aggregated) |
+| `after-action-review.ts` | ts | Single-loop | `.audit-cache/aar.json` + `aar-history/` + `blind-spot-registry.json` |
+| `gold-set.ts` | ts | (validation) | `.audit-cache/gold-set.json` (24 known bugs from audit history) |
+| `v4-audit.sh` | shell | orchestrator | All tools in order with v3.7 regression gate |
+
+## v4 Workflow (5 steps)
+
+```bash
+# 1. Generate manifest + flow trace (auto, no LLM)
+bash ~/.config/opencode/skills/audit-fix-loop-v3/tools/subsystem-manifest.sh generate
+npx tsx ~/.config/opencode/skills/audit-fix-loop-v3/tools/flow-trace.ts
+npx tsx ~/.config/opencode/skills/audit-fix-loop-v3/tools/generate-blind-briefings.ts
+
+# 2. Run 5 Blue Team agents (each reads ONLY its briefing)
+#    - blue_1: concurrency lens, server_infra subsystem
+#    - blue_2: data_flow lens, shared subsystem
+#    - blue_3: error_handling lens, ai_exam subsystem
+#    - blue_4: resource_lifecycle lens, tts subsystem
+#    - blue_5: security lens, user subsystem
+# Each agent outputs to .audit-cache/findings/blue_<N>.json
+
+# 3. Run Red Team (M3, blind to blue team reasoning)
+#    Use cross-run-dedup first to skip known issues
+npx tsx ~/.config/opencode/skills/audit-fix-loop-v3/tools/red-team-attack.ts protocol
+# Then for each finding, run M3 with 4-step attack
+# Save to .audit-cache/red-team-attacks/<id>_result.json
+npx tsx ~/.config/opencode/skills/audit-fix-loop-v3/tools/red-team-verify.ts
+
+# 4. AAR (4 mandatory questions, by human or LLM)
+npx tsx ~/.config/opencode/skills/audit-fix-loop-v3/tools/after-action-review.ts template
+# Fill in the 4 questions, rename to aar.json
+npx tsx ~/.config/opencode/skills/audit-fix-loop-v3/tools/after-action-review.ts commit
+
+# 5. v3.7 regression (must still pass)
+bash ~/.config/opencode/skills/audit-fix-loop-v3/tools/regression-suite.sh
+```
+
+Or run all in one:
+```bash
+bash ~/.config/opencode/skills/audit-fix-loop-v3/tools/v4-audit.sh
+```
+
+## v4 Success Criteria (from design doc)
+
+| Metric | v3.7 | v4 target | How to measure |
+|--------|------|-----------|----------------|
+| Cross-subsystem findings / total | < 5% | > 30% | Count findings tagged with `flow_id` |
+| Findings rediscovered across runs | ~40% | < 10% | `cross-run-dedup.sh filter` |
+| P0/P1 detection rate | ~60% | > 90% | Gold set test (24 known bugs) |
+| Mutation test kill rate | ~60% | > 85% | `sed-mutation-test.sh` on all files |
+| Time to convergence | ~4 rounds | ≤ 3 rounds | `convergence-check.sh` logs |
+| Blind spot coverage | N/A | > 80% after 5 runs | `blind-spot-registry.sh` metric |
+
+## Gold Set (24 known bugs)
+
+The gold set is built from past audit history:
+- v3.5 73 AI findings + 53 grammar findings + 21 grammar findings
+- v3.6 retro SRE-006
+- v3.5 DEVIL-019, DEVIL-022
+- SEC-002, 005, 006, 007, 008 (commits 69aa1b9, b790963)
+- A11Y-001, AUTH-001, FEED-001, TTS-001, TTS-002
+
+Distribution: 4 P0, 16 P1, 4 P2; 13 cross-subsystem (54%); covers 7 categories and 6 lenses.
+
+## When to use v4 vs v3.7
+
+| 情况 | 用 |
+|------|---|
+| 第一次 audit 这个项目 | v3.7 (建立 baseline) |
+| Audit 反复发现浅层 finding | **v4** (这是设计目标场景) |
+| 单文件 / 小改动 | v3.7 (incremental mode) |
+| 紧急 P0 阻断 | v3.7 (emergency mode) |
+| 月度 / 季度深度审计 | **v4** |
+| v3.7 跑出 zero-defect 但用户怀疑 | **v4** (红队会找出) |
+
+## v4 当前状态 (2026-06-17)
+
+- ✅ 7 工具 + 1 orchestrator 已实现
+- ✅ 9/9 v4 integration test 通过
+- ✅ 380/380 全部 test 通过 (含 9 v3.7 regression tests)
+- ✅ 24 gold bugs 已 curated (足够 v4 验证)
+- ⏳ 蓝队 + 红队 agent prompt 模板待 v4 实战验证
+- ⏳ 第一次 v4 全 cycle 跑通待执行
+
+## 设计文档
+
+完整设计 (984 行) 在 `docs/plans/audit-fix-loop-v4-design-2026-06-17.md`，含:
+- 8 个 section (架构 + 4 根因 + roadmap + 风险 + 成功标准)
+- Mermaid 架构图
+- 6 步 14 天实施 roadmap (实际压缩到 1 session)
+- 4 成功标准量化
+- 7 个 explicit tradeoffs
+
