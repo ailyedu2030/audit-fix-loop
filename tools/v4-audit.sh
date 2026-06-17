@@ -37,11 +37,30 @@ gate() {
   fi
 }
 
-# Gate with exponential backoff (v4.2 P0-L2)
+# Gate with exponential backoff (v4.2 P0-L2) + gate-check.sh integration (v5.1)
 gate_with_retry() {
   local step_name="$1"
   local check_command="$2"
   local max="${3:-3}"
+  
+  # Try gate-check.sh if phase name matches a PHASE_X pattern and state file exists
+  if [[ "$step_name" =~ ^PHASE_ ]] && [ -f "$AUDIT_CACHE/audit_state.json" ]; then
+    for i in $(seq 1 $max); do
+      if bash "$TOOL_DIR/gate-check.sh" --required-phase="$step_name" "$AUDIT_CACHE/audit_state.json" >/dev/null 2>&1; then
+        log "✓ $step_name gate-check passed (attempt $i)"
+        return 0
+      fi
+      if [ $i -lt $max ]; then
+        local delay=$((2 ** (i - 1)))
+        warn "⏳ $step_name gate-check failed, retrying in ${delay}s..."
+        sleep $delay
+      fi
+    done
+    err "✗ $step_name gate-check failed after $max attempts"
+    return 1
+  fi
+
+  # Fallback to eval-based check
   for i in $(seq 1 $max); do
     if eval "$check_command" >/dev/null 2>&1; then
       log "✓ $step_name passed (attempt $i)"
@@ -213,11 +232,24 @@ main() {
   log "Lock acquired: $LOCK_DIR (PID $$)"
 
   step_0_manifest || exit 1
+  gate_with_retry "PHASE_0_ENTRY" "test -f $AUDIT_CACHE/audit_state.json" 2 || exit 1
+
   step_1_flow || exit 1
+
   step_2_briefings || exit 1
+  gate_with_retry "briefings" "[ -d $AUDIT_CACHE/briefings ] && [ \$(ls $AUDIT_CACHE/briefings/audit-blue-*.json 2>/dev/null | wc -l) -ge 3 ]" 2 || exit 1
+
   step_3_blue_team || exit 1
+  gate_with_retry "PHASE_2_REVIEW" "[ -d $AUDIT_CACHE/findings ] && [ \$(ls $AUDIT_CACHE/findings/audit-blue-*.json 2>/dev/null | wc -l) -ge 3 ]" 2 || exit 1
+
+  # Assemble findings.json for cross-run dedup (step 6 needs it)
+  log "Assembling findings.json from agent outputs..."
+  bash "$TOOL_DIR/arbitrate-findings.sh" "$AUDIT_CACHE/findings" "$AUDIT_CACHE/findings.json" || warn "arbitration had issues"
+
   step_4_red_team || exit 1
+
   step_5_aar || exit 1
+
   step_6_dedup
   step_7_regression
   
