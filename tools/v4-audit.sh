@@ -113,13 +113,16 @@ step_3_blue_team() {
     log "Step 3: Findings exist, skipping blue team"
     return 0
   fi
-  log "Step 3: Preparing Blue Team task prompts..."
-  for briefing in "$AUDIT_CACHE/briefings"/audit-blue-*.json; do
+  log "Step 3: Preparing Blue Team task prompts (parallel)..."
+  local briefing_files=("$AUDIT_CACHE/briefings"/audit-blue-*.json)
+  for briefing in "${briefing_files[@]}"; do
     [ -f "$briefing" ] || continue
-    agent=$(basename "$briefing" .json)  # e.g. audit-blue-security
+    agent=$(basename "$briefing" .json)
     log "  Task: $agent ← $briefing"
-    npx tsx "$TOOL_DIR/run-blue-agent.ts" "$agent" "$briefing" 2>&1 | tail -2 || warn "$agent task prep failed"
+    (npx tsx "$TOOL_DIR/run-blue-agent.ts" "$agent" "$briefing" 2>&1 | tail -2) &
   done
+  wait
+  log "  Task files: $(ls $AUDIT_CACHE/findings/task-audit-blue-*.json 2>/dev/null | wc -l | tr -d ' ') prepared"
   log ""
   warn "================================================"
   warn "ORCHESTRATOR: Use Task tool to spawn each agent:"
@@ -175,7 +178,29 @@ step_7_regression() {
 main() {
   log "=== v4 Audit Cycle ==="
   log ""
-  
+
+  # Pre-flight: verify project has source files
+  local file_count
+  file_count=$(find . -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.sql" \) -not -path "*/node_modules/*" -not -path "*/.git/*" 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$file_count" -eq 0 ]; then
+    err "Pre-flight: 0 source files found — nothing to audit. Use --allow-empty to override."
+    exit 1
+  fi
+  log "Pre-flight: $file_count source files detected"
+  log ""
+
+  # Concurrency lock: prevent two audits on same project
+  LOCK_DIR="$AUDIT_CACHE/.lock"
+  if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+    local existing_pid
+    existing_pid=$(cat "$LOCK_DIR/pid" 2>/dev/null || echo "unknown")
+    err "Another audit is running (PID: $existing_pid). Remove $LOCK_DIR to force."
+    exit 1
+  fi
+  echo $$ > "$LOCK_DIR/pid"
+  trap 'rm -rf "$LOCK_DIR"' EXIT
+  log "Lock acquired: $LOCK_DIR (PID $$)"
+
   step_0_manifest || exit 1
   step_1_flow || exit 1
   step_2_briefings || exit 1

@@ -12,22 +12,12 @@ Layered adversarial audit for AI coding agents. Three independent layers: Subsys
 
 **v3.7 lesson**: "clear-domain tool on complex-domain problem" — 15 phases skipped because the agent couldn't faithfully execute them. v4 = pipeline → system, with independent layers that genuinely run.
 
-## When to Use
-
-| Situation | Mode |
-|-----------|------|
-| First audit / new project | `v3.7 deep` |
-| Shallow findings, repeated cycles (v4 target) | **`v4`** |
-| Single file / small change | `v3.7 incremental` |
-| Emergency P0 | `v3.7 emergency` |
-| Monthly deep dive / prove-it's-clean | **`v4`** |
-
 ## Quick Start
 
 ```bash
-bash tools/init-audit.sh --mode=deep                  # Phase 0
-bash tools/v4-audit.sh                                  # Full v4 pipeline
-# Or v3.7:  bash tools/v4-audit.sh --v3.7 --deep
+bash tools/init-audit.sh --mode=deep      # Phase 0
+bash tools/v4-audit.sh                     # Full v4 pipeline
+bash tools/v4-audit.sh --v3.7 --deep       # Legacy v3.7
 ```
 
 ## Pipeline
@@ -67,13 +57,10 @@ No shared pre-query — no Bandwagon. Signals per lens in `agents/audit-blue-*.m
 
 ## Key Rules
 
-1. **No verbal "zero defect"** — every verified finding must have `test_ids` + `mutation_killed=true`
-2. **Gates are mandatory** — `gate-check.sh` at every phase transition; without it phases_passed stays false
-3. **Phase 4.5/5.6/5.7/5.8 cannot be skipped** — all required for Phase 7 entry
-4. **"Test already exists" is not self-validating** — `sed-mutation-test.sh` must prove tests catch bugs (≥4/5 kill)
-5. **Smoke ≠ whole pyramid** — dynamic + chaos + mutation all required; smoke is 1/6 layers
-6. **P0 regression suite** — every historical P0 bug has a regression test; all pass before Phase 7
-7. **P2 must fix**; P3 can defer only with explicit user confirmation (recorded in `cannot_fix_queue`)
+1. **No verbal "zero defect"** — every finding must have `test_ids` + `mutation_killed=true`
+2. **All phases + gates mandatory** — no skips; smoke ≠ full pyramid (1/6 layers); P0 regression must pass
+3. **"Test already exists" is not self-validating** — `sed-mutation-test.sh` must confirm ≥4/5 kill rate
+4. **P2 must fix; P3 deferral requires explicit user OK** (recorded in `cannot_fix_queue`)
 
 ## Gate Reference
 
@@ -122,14 +109,6 @@ Findings use **canonical pattern IDs** (stable semantic hash):
 hash=$(bash tools/finding-hash.sh --module=path/to/file.ts --function=funcName --pattern=canonical_id)
 ```
 Cross-run dedup uses this hash. See `docs/v4-addendum.md` for full schema.
-
-## v4 Architecture (see `docs/v4-addendum.md` for full details)
-
-- **Subsystem layer**: `subsystem-manifest.sh` (13 subsystems) → `flow-trace.ts` (32 cross-flows)
-- **Adversarial layer**: Blue Team (5 independent lenses) → Red Team (M3, 4-step attack, `response_format: json_object`)
-- **Learning layer**: After-Action Review → blind spot registry → method updates
-- **Stability layer** (v4.2): `validate-retry.ts` (schema validation + exponential backoff retry), `validate-causal-chain.sh` (depth gate, rejects findings with <3 causal chain steps or root_cause restating description)
-- **Circuit breaker** (v4.2): per-phase 5min timeout, auto-proceed on manual steps, P0 regression blocks pipeline
 
 ## Tool Index
 
