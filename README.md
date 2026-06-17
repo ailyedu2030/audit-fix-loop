@@ -1,16 +1,16 @@
 # audit-fix-loop-v3
 
 Systematic **zero-trust** audit & fix loop for AI coding agents.
-Test pyramid, runtime smoke, 3-layer root cause, **mechanical gates**,
-state machine, mutation testing, chaos engineering.
 
-**All P0–P3 must be fixed AND have regression tests**.
+**v4.0.0 — Layered Adversarial Audit**: resolves 4 root causes (Bandwagon,
+File-local scope, Self-referential verification, Single-loop learning)
+identified by 6-expert retrospective. Blue Team (divergent lenses) → Red Team
+(cross-model M3) → AAR (double-loop learning).
 
-[![version](https://img.shields.io/badge/version-3.5.0-blue)](SKILL.md)
-[![phases](https://img.shields.io/badge/phases-7%20%2B%201.5%2B%204.5%2B%205.6%2F7%2F8%20%2B%206.5-green)](SKILL.md)
-[![tests](https://img.shields.io/badge/tools-10-orange)](tools/)
+[![version](https://img.shields.io/badge/version-4.0.0-blue)](SKILL.md)
+[![phases](https://img.shields.io/badge/tools-24-orange)](tools/)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![supersedes](https://img.shields.io/badge/supersedes-audit--fix--verify-lightgrey)](SKILL.md)
+[![supersedes](https://img.shields.io/badge/supersedes-v3.7.0-lightgrey)](SKILL.md)
 
 ---
 
@@ -29,15 +29,52 @@ test pyramid, and a non-overridable zero-trust workflow.
 
 ### Real-world validation
 
+- **English-CET v4 audit** (2026-06-17): 2 full adversarial audit cycles
+  - 5→7 Blue Team agents (divergent lenses), M3 Red Team (cross-model)
+  - 22 findings (1 P0, 7 P1, 14 P2), 14 cross-subsystem cousin bugs by Red Team
+  - 19 bugs fixed across 15 files, 380/380 tests, 0 tsc errors
+  - Detection rate: 29%→75% after AAR applied (+46%)
+  - AAR double-loop: 2 cycles, 7 method updates, 5 blind spots registered
 - **English-CET writing training**: 8 audit rounds converged 58 defects to 0
-- **Grammar training module** (2026-06-17): 21 findings, all resolved, 5 P0
-  covered by tests, full test pyramid (229 tests) green
-- **5 new vulnerabilities** caught by v3.3 in code that had already passed
-  8 prior rounds (proving audit scope must cover adjacent endpoints)
+- **Grammar training module**: 21 findings, all resolved, 5 P0 covered
+- **5 new vulnerabilities** caught by v3.3 in code that had already passed 8 prior rounds
 
 ---
 
-## What — 7 main + 5 sub phases
+---
+
+## v4.0.0 — Layered Adversarial Audit
+
+v3.5→v4.0: pipeline → system. 6-expert retrospective identified **4 root causes**
+behind shallow, multi-loop audits:
+
+| Root Cause | v3 behavior | v4 solution |
+|-----------|-------------|-------------|
+| **Bandwagon** (6/6) | 7 agents share pre-query → 7 copies of same finding | 5 independent lenses per subsystem |
+| **File-local scope** (6/6) | Tools operate on files; root causes cross files | Subsystem manifest + flow trace (32 cross-flows) |
+| **Self-referential** (4/6) | Same LLM verifies its own findings | M3 Red Team (cross-model) + 4-step attack protocol |
+| **Single-loop** (3/6) | Repeat audit, never learn why it missed | AAR (4 questions) + blind spot registry + method updates |
+
+### New tools (v4, 16 total)
+
+| Tool | Type | Purpose |
+|------|------|---------|
+| `subsystem-manifest.sh` | shell | 13 subsystems auto-detected from project structure |
+| `flow-trace.ts` | TS | 32 cross-subsystem data flows (handles @/ path alias) |
+| `generate-blind-briefings.ts` | TS | 5→7 independent agent briefings (round-robin lens) |
+| `red-team-attack.ts` + `red-team-runner.ts` + `red-team-verify.ts` | TS | M3 cross-model adversarial verification |
+| `after-action-review.ts` | TS | 4 mandatory questions → method updates → blind spot registry |
+| `gold-set.ts` | TS | 24 curated known bugs for detection rate measurement |
+| `v4-audit.sh` | shell | Full v4 orchestrator (all tools in order + v3 regression gate) |
+| `v4-detect-rate.ts` | TS | Detection rate measurement vs gold set |
+| `finding-hash.sh` | shell | Stable semantic hash for cross-run dedup |
+| `cross-run-dedup.sh` | shell | Baseline-based finding suppression |
+| `baseline-diff.sh` | shell | Git diff-driven incremental audit scope |
+| `regression-suite.sh` | shell | P0 regression test gate |
+| `sed-mutation-test.sh` | shell | 5-pattern mutation test (30s) |
+| `audit-state-hash.sh` | shell | SHA-256 integrity check on state file |
+
+## What — 12 phases (v4 adds Phase 0.5 Baseline Load)
 
 | Phase | Name | Output |
 |-------|------|--------|

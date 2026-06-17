@@ -6,6 +6,43 @@ Format: [Semantic Versioning](https://semver.org/)
 
 ---
 
+## [4.0.0] — 2026-06-17 — Layered Adversarial Audit
+
+### The Problem
+
+After v3.5→v3.7 iterations, user identified:
+- Audit depth & breadth insufficient — findings were shallow (symptoms, not root causes)
+- Same problems rediscovered across audit runs (no cross-run learning)
+- 7 agents produced similar findings (Bandwagon effect)
+- Agent verified its own work (self-referential verification)
+
+A 6-expert retrospective (Root Cause Analyst, Cognitive Bias Auditor, SRE Veteran, Static Analysis Researcher, Software Archeologist, Methodology Designer) identified **4 root causes** with 4-6/6 consensus.
+
+### Breaking Changes
+
+- **Pipeline → System architecture**: linear 15-phase pipeline replaced by 3 independent layers (Subsystem, Adversarial Discovery, Learning)
+- **SKILL.md grows 649→766 lines**: v4 addendum documents 4 root causes, new tools, workflow
+- **7 shared-priors agents → 5 independent-lens Blue Team + cross-model Red Team**
+
+### Added (16 tools)
+
+- **Subsystem layer**: `subsystem-manifest.sh`, `flow-trace.ts`
+- **Adversarial layer**: `generate-blind-briefings.ts`, `red-team-attack.ts`, `red-team-runner.ts`, `red-team-verify.ts`
+- **Learning layer**: `after-action-review.ts`, `gold-set.ts`, `v4-detect-rate.ts`
+- **Orchestration**: `v4-audit.sh`
+- **v3.6-v3.7 carry-forward**: `finding-hash.sh`, `cross-run-dedup.sh`, `baseline-diff.sh`, `regression-suite.sh`, `sed-mutation-test.sh`, `audit-state-hash.sh`
+
+### Real-world validation (English-CET, 2026-06-17)
+
+- 2 full adversarial audit cycles: 5→7 Blue Team + M3 Red Team
+- 22 findings (1 P0, 7 P1, 14 P2), 14 cross-subsystem cousin bugs
+- 19 bugs fixed across 15 files (+231/-141 lines)
+- Red Team found 14 cousin bugs Blue Team missed (proof of cross-model value)
+- Detection rate improved 29%→75% after AAR applied (+46%)
+- 380/380 tests, 0 tsc errors, 2 AAR cycles, 7 method updates
+
+---
+
 ## [3.5.0] — 2026-06-17 — Zero-Trust Edition
 
 ### The Problem
