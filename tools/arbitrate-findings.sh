@@ -14,7 +14,7 @@ for f in "$FINDINGS_DIR"/audit-blue-*.json; do
   [ -f "$f" ] || continue
   agent=$(basename "$f" .json)
   # 【v4.10】Validate findings is an array before merging
-  local is_array
+  is_array
   is_array=$(jq -r 'if .findings | type == "array" then "true" else "false" end' < "$f")
   if [ "$is_array" != "true" ]; then
     echo "  ⚠ SKIP $agent: findings is not an array (type=$(jq -r '.findings | type' < "$f"))"
