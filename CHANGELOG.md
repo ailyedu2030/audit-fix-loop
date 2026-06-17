@@ -6,7 +6,52 @@ Format: [Semantic Versioning](https://semver.org/)
 
 ---
 
-## [4.0.0] — 2026-06-17 — Layered Adversarial Audit
+## [4.0.0] — 2026-06-18 — Layered Adversarial Audit (current, tagged)
+
+**Status: stable. Validated on English-CET (30k LoC).**
+
+### The Problem
+
+After v3.5→v3.7 iterations, user identified:
+- Audit depth & breadth insufficient (symptoms, not root causes)
+- Same problems rediscovered across runs (no cross-run learning)
+- 7 agents produced similar findings (Bandwagon effect)
+- Agent verified its own work (self-referential verification)
+
+A 6-expert retrospective identified **4 root causes** with 4-6/6 consensus.
+
+### Breaking Changes
+
+- **Pipeline → System**: 15-phase linear pipeline replaced by 3 independent layers
+- **SKILL.md 766→122 lines (-84%)**: progressive disclosure design
+- **7 shared-priors agents → 5 independent-lens Blue + M3 Red Team cross-model**
+
+### Tools (25 total: 17 shell + 8 TS)
+
+| Layer | Tools | Purpose |
+|-------|-------|---------|
+| Subsystem | `subsystem-manifest.sh`, `flow-trace.ts` | 13 subsystems, 32 cross-flows |
+| Adversarial (Blue) | `generate-blind-briefings.ts` | 5-7 divergent agent briefings |
+| Adversarial (Red) | `red-team-attack.ts`, `red-team-runner.ts`, `red-team-verify.ts` | M3 cross-model 4-step attack |
+| Learning | `after-action-review.ts`, `gold-set.ts`, `v4-detect-rate.ts` | AAR + blind spot registry + metrics |
+| Orchestration | `v4-audit.sh`, `init-audit.sh` | Full pipeline |
+| Cross-run (v3.6-v3.7) | `finding-hash.sh`, `cross-run-dedup.sh`, `baseline-diff.sh`, `regression-suite.sh`, `sed-mutation-test.sh` | Cross-run dedup + incremental + P0 gate |
+
+### Real-world Validation (English-CET, 2026-06-17)
+
+- 2 full adversarial audit cycles: 5→7 Blue Team + M3 Red Team
+- 22 findings (1 P0, 7 P1, 14 P2)
+- Red Team found 14 cousin bugs Blue Team missed (proof of cross-model value)
+- Flagged 3 Blue Team findings as wrong (false positive filtered)
+- 19 bugs fixed across 15 files (+231/-141 lines)
+- Detection rate improved 29%→75% after AAR applied (+46%)
+- 380/380 tests, 0 tsc errors, 2 AAR cycles, 7 method updates
+
+### SKILL.md Optimization
+
+- Expert analysis found 50% token waste in old 766-line document
+- Progressive disclosure: SKILL.md (122 lines, actionable) → tools/README.md (reference) → docs/v4-addendum.md (details) → CHANGELOG.md (history)
+- Cross-test verified: 10/10 gate alignment, 18/18 tool references, agent behavior equivalent
 
 ### The Problem
 
