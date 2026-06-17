@@ -7,7 +7,7 @@ FINDINGS_DIR="${1:-.audit-cache/findings}"
 OUTPUT="${2:-.audit-cache/findings.json}"
 
 tmp=$(mktemp)
-echo '{"merged_from":[],"findings":[],"stats":{"total":0,"by_severity":{},"by_agent":{}}}' > "$tmp"
+echo '{"merged_from":[],"findings":[]}' > "$tmp"
 
 count=0
 for f in "$FINDINGS_DIR"/audit-blue-*.json; do
@@ -15,22 +15,27 @@ for f in "$FINDINGS_DIR"/audit-blue-*.json; do
   agent=$(basename "$f" .json)
   echo "  Merging: $agent"
   
-  jq --arg agent "$agent" '
-    .merged_from += [$agent] |
-    .findings += [.findings[]? + {source_agent: $agent}] |
-    .stats.total += (.findings | length) |
-    .stats.by_agent[$agent] = (.findings | length)
-  ' "$tmp" > "${tmp}.new" && mv "${tmp}.new" "$tmp"
+  # Merge findings from this agent into accumulator
+  jq --arg agent "$agent" --slurpfile acc "$tmp" '
+    ($acc[0]) as $a |
+    {
+      merged_from: ($a.merged_from + [$agent]),
+      findings: ($a.findings + [.["findings"][]?] | map(. + {source_agent: $agent}))
+    }
+  ' < "$f" > "${tmp}.new" && mv "${tmp}.new" "$tmp"
   
   count=$((count + 1))
 done
 
-# Compute severity distribution
-jq '(.findings | group_by(.severity) | map({key: .[0].severity, value: length}) | from_entries) as $sev |
-    .stats.by_severity = $sev' "$tmp" > "${tmp}.new" && mv "${tmp}.new" "$tmp"
+# Compute stats
+jq '.stats = {
+    total: (.findings | length),
+    by_severity: (.findings | group_by(.severity) | map({key: .[0].severity, value: length}) | from_entries),
+    by_agent: (.findings | group_by(.source_agent) | map({key: .[0].source_agent, value: length}) | from_entries)
+  }' "$tmp" > "${tmp}.new" && mv "${tmp}.new" "$tmp"
 
-# Dedup: if 2+ agents report same module+pattern, keep highest severity
-jq '.findings |= (group_by(.module + "|" + .pattern) | map(
+# Dedup: group by module+pattern, keep highest severity
+jq '.findings |= (group_by(.module + "|" + (.pattern // "")) | map(
   sort_by(.severity) | .[0] + {duplicate_sources: [.[].source_agent] | unique}
 ))' "$tmp" > "${tmp}.new" && mv "${tmp}.new" "$tmp"
 
